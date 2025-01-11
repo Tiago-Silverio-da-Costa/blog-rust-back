@@ -1,23 +1,25 @@
-use axum::{response::IntoResponse, routing::{get, post}, Json, Router};
+use axum::{ extract::State, response::IntoResponse, routing::{get, post}, Json, Router};
 use dotenv::dotenv;
 use sqlx::mysql::{MySqlPool, MySqlPoolOptions};
+use sqlx::FromRow;
 use serde::{Deserialize, Serialize};
 use tokio::net::TcpListener;
 use std::sync::Arc;
-use chrono::NaiveDate;
+use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{DateTime, Utc};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, FromRow)] 
 pub struct Post {
     id: Option<i32>,
     author_id: i32,
     title: String,
     description: String,
-    publication_date: NaiveDate,
+    publication_date: chrono::NaiveDateTime,
     category_id: i32,
     post_image_url: Option<String>,
     content: String,
-    created_at: NaiveDate,
-    updated_at: NaiveDate
+    created_at:  DateTime<Utc>,
+    updated_at: DateTime<Utc>
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -61,10 +63,10 @@ async fn main() {
         .route("/api/healthcheck", get(health_check_handle))
         .route("/api/posts", get(get_all_posts))
         .route("/api/posts", post(create_post))
-        .route("/api/posts/:id/comments", post(create_comment))
+        .route("/api/posts/{id}/comments", post(create_comment))
         .with_state(Arc::new(AppState {db: pool.clone() }));
 
-    println!("Server started succussfully at 0.0.0.0:8080");
+    println!("Server started succussfully at http://127.0.0.1:8080/api/healthcheck");
 
     let listener = TcpListener::bind("0.0.0.0:8080").await.unwrap();
     axum::serve(listener, app.into_make_service()).await.unwrap();
