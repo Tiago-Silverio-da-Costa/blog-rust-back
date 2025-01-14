@@ -29,6 +29,20 @@ pub struct Post {
     updated_at: DateTime<Utc>,
 }
 
+#[derive(Debug, Serialize, Deserialize, FromRow)]
+pub struct PostWithRelations {
+    id: Option<i32>,
+    title: String,
+    description: String,
+    publication_date: chrono::NaiveDateTime,
+    category_name: String,
+    author_name: String,
+    post_image_url: Option<String>,
+    content: String,
+    created_at: DateTime<Utc>,
+    updated_at: DateTime<Utc>,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Comment {
     id: Option<i32>,
@@ -123,10 +137,24 @@ pub async fn get_post_by_id(
     State(state): axum::extract::State<Arc<AppState>>,
     axum::extract::Path(id): axum::extract::Path<i32>,
 ) -> impl IntoResponse {
-    let result = sqlx::query_as::<_, Post>("SELECT * FROM posts WHERE id = ?")
-        .bind(id)
-        .fetch_optional(&state.db)
-        .await;
+    let result = sqlx::query_as::<_, PostWithRelations>(
+        "
+        SELECT 
+            posts.*,
+            categories.name AS category_name,
+            authors.name AS author_name
+       FROM 
+            posts
+    LEFT JOIN 
+            categories ON posts.category_id = categories.id
+    LEFT JOIN 
+            authors ON posts.author_id = authors.id
+    WHERE 
+            posts.id = ?",
+    )
+    .bind(id)
+    .fetch_optional(&state.db)
+    .await;
 
     match result {
         Ok(Some(post)) => Json(post).into_response(),
