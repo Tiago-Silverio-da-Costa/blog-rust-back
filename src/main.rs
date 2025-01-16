@@ -62,6 +62,7 @@ pub struct Author {
 
 #[derive(Deserialize)]
 pub struct RegisterRequest {
+    name: String,
     email: String,
     password: String,
 }
@@ -150,13 +151,13 @@ pub async fn get_post_by_id(
         SELECT 
             posts.*,
             categories.name AS category_name,
-            authors.name AS author_name
+            users.name AS author_name
        FROM 
             posts
     LEFT JOIN 
             categories ON posts.category_id = categories.id
     LEFT JOIN 
-            authors ON posts.author_id = authors.id
+            users ON posts.author_id = users.id
     WHERE 
             posts.id = ?",
         )
@@ -186,12 +187,14 @@ pub async fn email_already_exists(
     email: &str,
     pool: &MySqlPool,
 ) -> Result<(), (StatusCode, Json<Value>)> {
-    let query = "SELECT COUNT(*) as count FROM user WHERE email = ?";
-
+    println!("passou12");
+    let query = "SELECT COUNT(*) as count FROM users WHERE email = ?";
+    println!("Executando consulta para verificar email...");
     match sqlx::query(query).bind(email).fetch_one(pool).await {
         Ok(row) => {
             let count: i64 = row.get("count");
             if count > 0 {
+                println!("Email já existe.");
                 Err((
                     StatusCode::BAD_REQUEST,
                     Json(json!({
@@ -203,13 +206,16 @@ pub async fn email_already_exists(
                 Ok(())
             }
         }
-        Err(_) => Err((
-            StatusCode::INTERNAL_SERVER_ERROR,
-            Json(json!({
-                "status": false,
-                "message": "Erro ao verificar email"
-            })),
-        )),
+        Err(err) => {
+            println!("Erro ao executar consulta: {:?}", err);
+            Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "status": false,
+                    "message": "Erro ao verificar email"
+                })),
+            ))
+        }
     }
 }
 
@@ -219,31 +225,53 @@ pub async fn register(
 ) -> Result<impl axum::response::IntoResponse, StatusCode> {
     let pool = &state.pool;
 
+    println!(
+        "Recebido: Nome: {}, Email: {}, Senha: {}",
+        payload.name, payload.email, payload.password
+    );
+
     if let Err(err) = email_already_exists(&payload.email, pool).await {
+        println!("Erro ao verificar email: {:?}", err);
         return Err(err.0); // Retorna o StatusCode do erro
     }
 
     let hashed_password = match bcrypt::hash(&payload.password, bcrypt::DEFAULT_COST) {
-        Ok(hash) => hash,
-        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Ok(hash) => {
+            println!("Senha criptografada com sucesso.");
+            hash
+        }
+        Err(err) => {
+            println!("Erro ao criptografar senha: {:?}", err);
+            return Err(StatusCode::INTERNAL_SERVER_ERROR);
+        }
     };
+    println!("Recebido: hashed_password: {}", hashed_password);
+
 
     let query = "INSERT INTO users (name, email, password) VALUES (?, ?,  ?)";
     match sqlx::query(query)
+        .bind(&payload.name)
         .bind(&payload.email)
         .bind(&hashed_password)
         .execute(pool)
         .await
     {
-        Ok(_) => Ok((
-            StatusCode::CREATED,
-            Json(serde_json::json!({"message": "User registered successfully"})),
-        )),
-        Err(sqlx::Error::Database(db_err))
-            if db_err.constraint().unwrap_or("") == "users_email_unique" =>
-        {
-            Err(StatusCode::CONFLICT)
+        Ok(_) => {
+            println!("Usuário inserido com sucesso.");
+            Ok((
+                StatusCode::CREATED,
+                Json(serde_json::json!({"message": "User registered successfully"})),
+            ))
         }
-        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
+        Err(err) => {
+            println!("Erro ao inserir usuário: {:?}", err);
+            if let sqlx::Error::Database(db_err) = &err {
+                if db_err.constraint().unwrap_or("") == "users_email_unique" {
+                    println!("Conflito: email já registrado.");
+                    return Err(StatusCode::CONFLICT);
+                }
+            }
+            Err(StatusCode::INTERNAL_SERVER_ERROR)
+        }
     }
 }
