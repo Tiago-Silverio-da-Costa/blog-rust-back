@@ -1,16 +1,17 @@
 use axum::{
     extract::State,
-    http::Method,
+    http::{Method, StatusCode},
     response::IntoResponse,
     routing::{get, post},
     Json, Router,
 };
-use chrono::{DateTime, Utc};
-use chrono::{NaiveDate, NaiveDateTime};
+use chrono::{DateTime, NaiveDateTime, Utc};
 use dotenv::dotenv;
 use serde::{Deserialize, Serialize};
+use serde_json::{json, Value};
 use sqlx::mysql::{MySqlPool, MySqlPoolOptions};
 use sqlx::FromRow;
+use sqlx::Row;
 use std::sync::Arc;
 use tokio::net::TcpListener;
 use tower_http::cors::{Any, CorsLayer};
@@ -21,7 +22,7 @@ pub struct Post {
     author_id: i32,
     title: String,
     description: String,
-    publication_date: chrono::NaiveDateTime,
+    publication_date: NaiveDateTime,
     category_id: i32,
     post_image_url: Option<String>,
     content: String,
@@ -34,7 +35,7 @@ pub struct PostWithRelations {
     id: Option<i32>,
     title: String,
     description: String,
-    publication_date: chrono::NaiveDateTime,
+    publication_date: NaiveDateTime,
     category_name: String,
     author_name: String,
     post_image_url: Option<String>,
@@ -59,8 +60,14 @@ pub struct Author {
     photo_url: Option<String>,
 }
 
+#[derive(Deserialize)]
+pub struct RegisterRequest {
+    email: String,
+    password: String,
+}
+
 pub struct AppState {
-    db: MySqlPool,
+    pub pool: MySqlPool,
 }
 
 #[tokio::main]
@@ -98,11 +105,11 @@ async fn main() {
         .route("/api/posts", get(get_all_posts))
         .route("/api/posts/{id}", get(get_post_by_id))
         // .route("/api/login", post(auth_login))
-        // .route("/api/register", post(register))
+        .route("/api/register", post(register))
         // .route("/api/sendcodetoemail", post(send_code_to_email))
         // .route("/api/checkcode", post(check_code))
         // .route("/api/newpassword", post(create_new_password))
-        .with_state(Arc::new(AppState { db: pool.clone() }))
+        .with_state(Arc::new(AppState { pool: pool.clone() }))
         .layer(cors);
 
     println!("Server started succussfully at http://127.0.0.1:8080/api/healthcheck");
@@ -126,7 +133,7 @@ pub async fn health_check_handle() -> impl IntoResponse {
 
 pub async fn get_all_posts(State(state): axum::extract::State<Arc<AppState>>) -> impl IntoResponse {
     let posts = sqlx::query_as::<_, Post>("SELECT * FROM posts")
-        .fetch_all(&state.db)
+        .fetch_all(&state.pool)
         .await
         .unwrap();
 
@@ -137,8 +144,9 @@ pub async fn get_post_by_id(
     State(state): axum::extract::State<Arc<AppState>>,
     axum::extract::Path(id): axum::extract::Path<i32>,
 ) -> impl IntoResponse {
-    let result = sqlx::query_as::<_, PostWithRelations>(
-        "
+    let result: Result<Option<PostWithRelations>, sqlx::Error> =
+        sqlx::query_as::<_, PostWithRelations>(
+            "
         SELECT 
             posts.*,
             categories.name AS category_name,
@@ -151,10 +159,10 @@ pub async fn get_post_by_id(
             authors ON posts.author_id = authors.id
     WHERE 
             posts.id = ?",
-    )
-    .bind(id)
-    .fetch_optional(&state.db)
-    .await;
+        )
+        .bind(id)
+        .fetch_optional(&state.pool)
+        .await;
 
     match result {
         Ok(Some(post)) => Json(post).into_response(),
@@ -171,5 +179,71 @@ pub async fn get_post_by_id(
             )
                 .into_response()
         }
+    }
+}
+
+pub async fn email_already_exists(
+    email: &str,
+    pool: &MySqlPool,
+) -> Result<(), (StatusCode, Json<Value>)> {
+    let query = "SELECT COUNT(*) as count FROM user WHERE email = ?";
+
+    match sqlx::query(query).bind(email).fetch_one(pool).await {
+        Ok(row) => {
+            let count: i64 = row.get("count");
+            if count > 0 {
+                Err((
+                    StatusCode::BAD_REQUEST,
+                    Json(json!({
+                        "status": false,
+                        "message": "Erro ao verificar email"
+                    })),
+                ))
+            } else {
+                Ok(())
+            }
+        }
+        Err(_) => Err((
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "status": false,
+                "message": "Erro ao verificar email"
+            })),
+        )),
+    }
+}
+
+pub async fn register(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<RegisterRequest>,
+) -> Result<impl axum::response::IntoResponse, StatusCode> {
+    let pool = &state.pool;
+
+    if let Err(err) = email_already_exists(&payload.email, pool).await {
+        return Err(err.0); // Retorna o StatusCode do erro
+    }
+
+    let hashed_password = match bcrypt::hash(&payload.password, bcrypt::DEFAULT_COST) {
+        Ok(hash) => hash,
+        Err(_) => return Err(StatusCode::INTERNAL_SERVER_ERROR),
+    };
+
+    let query = "INSERT INTO users (name, email, password) VALUES (?, ?,  ?)";
+    match sqlx::query(query)
+        .bind(&payload.email)
+        .bind(&hashed_password)
+        .execute(pool)
+        .await
+    {
+        Ok(_) => Ok((
+            StatusCode::CREATED,
+            Json(serde_json::json!({"message": "User registered successfully"})),
+        )),
+        Err(sqlx::Error::Database(db_err))
+            if db_err.constraint().unwrap_or("") == "users_email_unique" =>
+        {
+            Err(StatusCode::CONFLICT)
+        }
+        Err(_) => Err(StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
