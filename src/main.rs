@@ -67,6 +67,11 @@ pub struct RegisterRequest {
     password: String,
 }
 
+pub struct LoginRequest {
+    email: String,
+    password: String,
+}
+
 pub struct AppState {
     pub pool: MySqlPool,
 }
@@ -247,7 +252,6 @@ pub async fn register(
     };
     println!("Recebido: hashed_password: {}", hashed_password);
 
-
     let query = "INSERT INTO users (name, email, password) VALUES (?, ?,  ?)";
     match sqlx::query(query)
         .bind(&payload.name)
@@ -274,4 +278,42 @@ pub async fn register(
             Err(StatusCode::INTERNAL_SERVER_ERROR)
         }
     }
+}
+
+pub async fn login(
+    State(state): State<Arc<AppState>>,
+    Json(payload): Json<LoginRequest>,
+) -> Result<impl axum::response::IntoResponse, StatusCode> {
+    let pool = &state.pool;
+
+    println!(
+        "Recebido: Email: {}, Senha: {}",
+        payload.email, payload.password
+    );
+
+    let query = "SELECT * FROM users WHERE email = ? AND password = ?";
+    match sqlx::query(query)
+        .bind(&payload.email)
+        .bind(&payload.password)
+        .execute((pool))
+        .await
+        {
+            Ok(_) => {
+                println!("Usuário autenticado com sucesso.");
+                Ok((
+                    StatusCode::CREATED,
+                    Json(serde_json::json!({"message": "User registered successfully"})),
+                ))
+            }
+            Err(err) => {
+                println!("Erro ao inserir usuário: {:?}", err);
+                if let sqlx::Error::Database(db_err) = &err {
+                    if db_err.constraint().unwrap_or("") == "users_email_unique" {
+                        println!("Conflito: email já registrado.");
+                        return Err(StatusCode::CONFLICT);
+                    }
+                }
+                Err(StatusCode::INTERNAL_SERVER_ERROR)
+            }
+        }
 }
