@@ -1,3 +1,58 @@
+mod server;
+
+pub mod helpers {
+    pub mod db {
+        pub mod helpers_mysql;
+    }
+    pub mod middleware {
+        pub mod token;
+    }
+    pub mod response {
+        pub mod helpers_response;
+    }
+}
+
+pub mod mvc {
+    pub mod models {
+        pub mod user {
+            pub mod model_user;
+        }
+    }
+
+    pub mod controllers {
+        pub mod user {
+            pub mod controller_user;
+        }
+    }
+
+    pub mod routes {
+        pub mod user {
+            pub mod route_user;
+        }
+    }
+}
+
+use crate::helpers::db::helpers_mysql::HelperMySql;
+
+#[tokio::main]
+async fn main() {
+    let app: axum::Router = server::create_app().await;
+    let listener: tokio::net::TcpListener =
+        tokio::net::TcpListener::bind("0.0.0.0:3000").await.unwrap();
+    println!("Servidor rodando em http://0.0.0.0:3000");
+
+    match HelperMySql::init().await {
+        Ok(_helper) => {
+            println!("Conexão estabelecida com sucesso!")
+        }
+        Err(e) => {
+            eprintln!("Erro ao conectar ao banco: {}", e)
+        }
+    };
+
+    axum::serve(listener, app).await.unwrap();
+}
+
 use axum::{
     extract::State,
     http::{Method, StatusCode},
@@ -14,7 +69,7 @@ use sqlx::FromRow;
 use sqlx::Row;
 use std::sync::Arc;
 use tokio::net::TcpListener;
-use tower_http::cors::{Any, CorsLayer};
+
 
 #[derive(Debug, Serialize, Deserialize, FromRow)]
 pub struct Post {
@@ -76,55 +131,6 @@ pub struct AppState {
     pub pool: MySqlPool,
 }
 
-#[tokio::main]
-async fn main() {
-    dotenv().ok();
-    println!("Starting Rest API Service");
-
-    let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must set");
-    let pool = match MySqlPoolOptions::new()
-        .max_connections(10)
-        .connect(&database_url)
-        .await
-    {
-        Ok(pool) => {
-            println!("Connection to the database is successful!");
-            pool
-        }
-        Err(err) => {
-            println!("Failed to connect to the database: {:?}", err);
-            std::process::exit(1)
-        }
-    };
-
-    let cors = CorsLayer::new()
-        .allow_origin(
-            "http://localhost:3000"
-                .parse::<axum::http::HeaderValue>()
-                .unwrap(),
-        )
-        .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
-        .allow_headers(Any);
-
-    let app = Router::new()
-        .route("/api/healthcheck", get(health_check_handle))
-        .route("/api/posts", get(get_all_posts))
-        .route("/api/posts/{id}", get(get_post_by_id))
-        // .route("/api/login", post(auth_login))
-        .route("/api/register", post(register))
-        // .route("/api/sendcodetoemail", post(send_code_to_email))
-        // .route("/api/checkcode", post(check_code))
-        // .route("/api/newpassword", post(create_new_password))
-        .with_state(Arc::new(AppState { pool: pool.clone() }))
-        .layer(cors);
-
-    println!("Server started succussfully at http://127.0.0.1:8080/api/healthcheck");
-
-    let listener = TcpListener::bind("0.0.0.0:8080").await.unwrap();
-    axum::serve(listener, app.into_make_service())
-        .await
-        .unwrap();
-}
 
 pub async fn health_check_handle() -> impl IntoResponse {
     const MESSAGE: &str = "API Services";
@@ -188,132 +194,3 @@ pub async fn get_post_by_id(
     }
 }
 
-pub async fn email_already_exists(
-    email: &str,
-    pool: &MySqlPool,
-) -> Result<(), (StatusCode, Json<Value>)> {
-    println!("passou12");
-    let query = "SELECT COUNT(*) as count FROM users WHERE email = ?";
-    println!("Executando consulta para verificar email...");
-    match sqlx::query(query).bind(email).fetch_one(pool).await {
-        Ok(row) => {
-            let count: i64 = row.get("count");
-            if count > 0 {
-                println!("Email já existe.");
-                Err((
-                    StatusCode::BAD_REQUEST,
-                    Json(json!({
-                        "status": false,
-                        "message": "Erro ao verificar email"
-                    })),
-                ))
-            } else {
-                Ok(())
-            }
-        }
-        Err(err) => {
-            println!("Erro ao executar consulta: {:?}", err);
-            Err((
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({
-                    "status": false,
-                    "message": "Erro ao verificar email"
-                })),
-            ))
-        }
-    }
-}
-
-pub async fn register(
-    State(state): State<Arc<AppState>>,
-    Json(payload): Json<RegisterRequest>,
-) -> Result<impl axum::response::IntoResponse, StatusCode> {
-    let pool = &state.pool;
-
-    println!(
-        "Recebido: Nome: {}, Email: {}, Senha: {}",
-        payload.name, payload.email, payload.password
-    );
-
-    if let Err(err) = email_already_exists(&payload.email, pool).await {
-        println!("Erro ao verificar email: {:?}", err);
-        return Err(err.0); // Retorna o StatusCode do erro
-    }
-
-    let hashed_password = match bcrypt::hash(&payload.password, bcrypt::DEFAULT_COST) {
-        Ok(hash) => {
-            println!("Senha criptografada com sucesso.");
-            hash
-        }
-        Err(err) => {
-            println!("Erro ao criptografar senha: {:?}", err);
-            return Err(StatusCode::INTERNAL_SERVER_ERROR);
-        }
-    };
-    println!("Recebido: hashed_password: {}", hashed_password);
-
-    let query = "INSERT INTO users (name, email, password) VALUES (?, ?,  ?)";
-    match sqlx::query(query)
-        .bind(&payload.name)
-        .bind(&payload.email)
-        .bind(&hashed_password)
-        .execute(pool)
-        .await
-    {
-        Ok(_) => {
-            println!("Usuário inserido com sucesso.");
-            Ok((
-                StatusCode::CREATED,
-                Json(serde_json::json!({"message": "User registered successfully"})),
-            ))
-        }
-        Err(err) => {
-            println!("Erro ao inserir usuário: {:?}", err);
-            if let sqlx::Error::Database(db_err) = &err {
-                if db_err.constraint().unwrap_or("") == "users_email_unique" {
-                    println!("Conflito: email já registrado.");
-                    return Err(StatusCode::CONFLICT);
-                }
-            }
-            Err(StatusCode::INTERNAL_SERVER_ERROR)
-        }
-    }
-}
-
-pub async fn login(
-    State(state): State<Arc<AppState>>,
-    Json(payload): Json<LoginRequest>,
-) -> Result<impl axum::response::IntoResponse, StatusCode> {
-    let pool = &state.pool;
-
-    println!(
-        "Recebido: Email: {}, Senha: {}",
-        payload.email, payload.password
-    );
-
-    let query = "SELECT * FROM users WHERE email = ? AND password = ?";
-    match sqlx::query(query)
-        .bind(&payload.email)
-        .bind(&payload.password)
-        .execute((pool))
-        .await
-        {
-            Ok(_) => {
-                println!("Usuário autenticado com sucesso.");
-                Ok((
-                    StatusCode::CREATED,
-                    Json(serde_json::json!({"message": "User registered successfully"})),
-                ))
-            }
-            Err(err) => {
-                println!("Erro ao inserir usuário: {:?}", err);
-                if let sqlx::Error::Database(db_err) = &err {
-                    if db_err.constraint().unwrap_or("") == "users_email_unique" {
-                        println!("Conflito: email já registrado.");
-                        return Err(StatusCode::CONFLICT);
-                    }
-                }
-                Err(StatusCode::INTERNAL_SERVER_ERROR)
-            }
-        }
-}
