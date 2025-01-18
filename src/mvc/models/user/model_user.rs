@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use serde_json::{json};
+use serde_json::json;
 
 use axum::{
     extract::Json,
@@ -7,7 +7,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
-use sqlx::{mysql::MySqlRow, Row};
+use sqlx::Row;
 
 use crate::{
     helpers::db::helpers_mysql::HelperMySql, helpers::response::helpers_response::HelpersResponse,
@@ -51,12 +51,29 @@ impl IntoResponse for ApiError {
 
 impl ModelUser {
     pub async fn insert_user(data: Json<UserRequest>) -> impl IntoResponse {
-        let query: String = format!("INSERT INTO users (name, email, password) VALUES (?, ?,  ?)");
+        let query = "INSERT INTO users (name, email, password) VALUES (?, ?, ?)";
+        let params = vec![
+            data.user.name.clone(),
+            data.user.email.clone(),
+            data.user.password.clone(),
+        ];
 
-        match HelperMySql::execute_query(query).await {
-            Ok(_) => (StatusCode::CREATED, data).into_response(),
+        match HelperMySql::execute_query_with_params(query, params).await {
+            Ok(_) => {
+                // Retorna sucesso com o usuário criado
+                (
+                    StatusCode::CREATED,
+                    Json(json!({
+                        "status": true,
+                        "message": "Usuário criado com sucesso",
+                        "data": data.user
+                    })),
+                )
+                    .into_response()
+            }
             Err(_e) => {
-                return HelpersResponse::error("Erro ao inserir usuário").into_response();
+                // Retorna erro genérico
+                HelpersResponse::error("Erro ao inserir usuário").into_response()
             }
         }
     }
@@ -65,27 +82,38 @@ impl ModelUser {
         email: &str,
     ) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
         let query = "SELECT COUNT(*) as count FROM users WHERE email = ?";
-
         let params = vec![email];
 
         match HelperMySql::execute_query_with_params(query, params).await {
-            Ok(row) => {
-                // Extrair o valor do campo "count"
-                let count: i64 = row.try_get("count").unwrap_or(0);
+            Ok(rows) => {
+                // Verifica se há alguma linha retornada
+                if let Some(row) = rows.get(0) {
+                    // Extrai o valor do campo "count"
+                    let count: i64 = row.try_get("count").unwrap_or(0);
 
-                // Verifica se o email já existe
-                if count > 0 {
-                    // Email já cadastrado
+                    // Verifica se o email já existe
+                    if count > 0 {
+                        // Email já cadastrado
+                        Err((
+                            StatusCode::BAD_REQUEST,
+                            Json(json!({
+                                "status": false,
+                                "message": "Email já cadastrado no sistema"
+                            })),
+                        ))
+                    } else {
+                        // Email não existe
+                        Ok(())
+                    }
+                } else {
+                    // Caso não haja nenhuma linha, considere como erro
                     Err((
-                        StatusCode::BAD_REQUEST,
+                        StatusCode::INTERNAL_SERVER_ERROR,
                         Json(json!({
                             "status": false,
-                            "message": "Email já cadastrado no sistema"
+                            "message": "Erro inesperado na consulta"
                         })),
                     ))
-                } else {
-                    // Email não existe
-                    Ok(())
                 }
             }
             Err(_e) => {

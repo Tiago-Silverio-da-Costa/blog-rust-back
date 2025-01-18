@@ -2,7 +2,7 @@ use dotenv::dotenv;
 use once_cell::sync::OnceCell;
 use sqlx::{
     mysql::MySqlConnectOptions,
-    mysql::{MySqlPool, MySqlQueryResult},
+    mysql::{MySqlPool, MySqlRow},
     MySql, Pool,
 };
 use std::env;
@@ -62,28 +62,26 @@ impl HelperMySql {
         return sqlx::query(query.as_ref()).fetch_all(&instance.pool).await;
     }
 
-    pub async fn execute_query_with_params<'a,T>(
+    pub async fn execute_query_with_params<'a, T>(
         query: &'a str,
         params: Vec<T>,
-    ) -> Result<MySqlQueryResult, sqlx::Error>
+    ) -> Result<Vec<MySqlRow>, sqlx::Error>
     where
         T: sqlx::Encode<'a, MySql> + sqlx::Type<MySql> + Send + Sync + 'a,
     {
         let instance = Self::get_instance().expect("Database not initialized");
-
+    
         let mut query_builder = sqlx::query(query);
-
+    
         for param in params {
             query_builder = query_builder.bind(param);
         }
-
-        let result = query_builder.execute(&instance.pool).await?;
-
-        println!("Rows afetadas: {}", result.rows_affected());
-        println!("Último ID inserido: {:?}", result.last_insert_id());
-
-        Ok(result)
+    
+        // Execute a query que retorna as linhas
+        let rows = query_builder.fetch_all(&instance.pool).await?;
+        Ok(rows)
     }
+    
 
     pub async fn query<T>(query: &str) -> Result<Vec<T>, sqlx::Error>
     where
