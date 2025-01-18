@@ -10,7 +10,7 @@ use axum::{
 use tower_http::cors::{Any, CorsLayer};
 
 use crate::{
-    controllers::user::controller_user::ControllerUser,
+    mvc::controllers::user::controller_user::ControllerUser,
     helpers::middleware::token::HelperMiddlewareToken,
 };
 
