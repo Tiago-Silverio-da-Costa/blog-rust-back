@@ -52,42 +52,24 @@ impl IntoResponse for ApiError {
 }
 
 impl ModelPost {
-    pub async fn select_post() -> impl IntoResponse {
-        let query = "SELECT * FROM posts";
-
+    pub async fn select_post() -> Result<Vec<serde_json::Value>, sqlx::Error> {
+        let query = "SELECT * FROM posts"; // Ajuste para a sua tabela
         match HelperMySql::execute_select(query).await {
-            Ok(results) => {
-                let posts: Vec<Post> = results
-                    .iter()
-                    .map(|row| Post {
-                        id: row.get("id"),
-                        author_id: row.get("author_id"),
-                        category_id: row.get("category_id"),
-                        title: row.get("title"),
-                        description: row.get("description"),
-                        publication_date: row.get("publication_date"),
-                        post_image_url: row.get("post_image_url"),
-                        content: row.get("content"),
-                        created_at: row.get("created_at"),
-                        updated_at: row.get("updated_at"),
+            Ok(rows) => {
+                // Convertendo linhas para JSON
+                let posts: Vec<serde_json::Value> = rows
+                    .into_iter()
+                    .map(|row| {
+                        json!({
+                            "id": row.try_get::<i32, _>("id").unwrap_or_default(),
+                            "title": row.try_get::<String, _>("title").unwrap_or_default(),
+                            "content": row.try_get::<String, _>("content").unwrap_or_default(),
+                        })
                     })
                     .collect();
-
-                (
-                    StatusCode::OK,
-                    Json(json!({
-                        "status": true,
-                        "message": "Posts retrieved successfully",
-                        "data": posts
-                    })),
-                )
-                    .into_response()
+                Ok(posts)
             }
-            Err(_e) => ApiError {
-                status_code: StatusCode::INTERNAL_SERVER_ERROR,
-                message: "Error fetching posts".to_string(),
-            }
-            .into_response(),
+            Err(err) => Err(err),
         }
     }
 }

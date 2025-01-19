@@ -24,6 +24,8 @@ impl HelperMySql {
             env::var("MYSQL_CONN_DB_USERNAME").expect("MYSQL_CONN_DB_USERNAME não configurada");
         let password =
             env::var("MYSQL_CONN_DB_PASSWORD").expect("MYSQL_CONN_DB_PASSWORD não configurada");
+        let database =
+            env::var("MYSQL_CONN_DB_DATABASE").expect("MYSQL_CONN_DB_DATABASE não configurada");
         let port = env::var("MYSQL_CONN_DB_PORT")
             .expect("MYSQL_CONN_DB_PORT não configurada")
             .parse::<u16>()
@@ -33,6 +35,7 @@ impl HelperMySql {
             .host(&host)
             .username(&username)
             .password(&password)
+            .database(&database)
             .port(port);
 
         let pool = MySqlPool::connect_with(optins).await?;

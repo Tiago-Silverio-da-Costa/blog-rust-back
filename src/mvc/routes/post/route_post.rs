@@ -4,18 +4,19 @@ use axum::{
     middleware::from_fn,
     middleware::Next,
     response::Response,
-    routing::post,
+    routing::get,
     Router,
 };
 use tower_http::cors::{Any, CorsLayer};
 
 use crate::{
     helpers::middleware::token::HelperMiddlewareToken,
-    mvc::controllers::user::controller_user::ControllerUser,
+    mvc::controllers::post::controller_post::ControllerPost,
 };
 
 async fn auth_middleware(req: Request<Body>, next: Next) -> Response {
     let auth: HelperMiddlewareToken = HelperMiddlewareToken::new();
+
     auth.verify_token(req, next).await
 }
 
@@ -29,12 +30,9 @@ pub fn create_routes() -> Router {
         .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
         .allow_headers(Any);
 
-    let public_routes = Router::new()
-        .route("/register", post(ControllerUser::register_user))
-        .route("/login", post(ControllerUser::login));
+    let public_routes = Router::new().route("/post", get(ControllerPost::get_all_posts));
 
-    let protected_routes = Router::new()
-        .layer(from_fn(auth_middleware));
+    let protected_routes = Router::new().layer(from_fn(auth_middleware));
 
     Router::new()
         .merge(public_routes)
