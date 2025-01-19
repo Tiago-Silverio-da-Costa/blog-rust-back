@@ -19,19 +19,15 @@ impl HelperMySql {
     pub async fn new() -> Result<Self, sqlx::Error> {
         dotenv().ok();
 
-        let host: String =
-            env::var("MYSQL_CONN_DB_HOST").expect("MYSQL_CONN_DB_HOST não configurada");
-
-        let username: String =
+        let host = env::var("MYSQL_CONN_DB_HOST").expect("MYSQL_CONN_DB_HOST não configurada");
+        let username =
             env::var("MYSQL_CONN_DB_USERNAME").expect("MYSQL_CONN_DB_USERNAME não configurada");
-
-        let password: String =
+        let password =
             env::var("MYSQL_CONN_DB_PASSWORD").expect("MYSQL_CONN_DB_PASSWORD não configurada");
-
-        let port: u16 = env::var("MYSQL_CONN_DB_PORT")
+        let port = env::var("MYSQL_CONN_DB_PORT")
             .expect("MYSQL_CONN_DB_PORT não configurada")
-            .parse()
-            .unwrap();
+            .parse::<u16>()
+            .expect("MYSQL_CONN_DB_PORT não é um número válido");
 
         let optins = MySqlConnectOptions::new()
             .host(&host)
@@ -70,18 +66,17 @@ impl HelperMySql {
         T: sqlx::Encode<'a, MySql> + sqlx::Type<MySql> + Send + Sync + 'a,
     {
         let instance = Self::get_instance().expect("Database not initialized");
-    
+
         let mut query_builder = sqlx::query(query);
-    
+
         for param in params {
             query_builder = query_builder.bind(param);
         }
-    
+
         // Execute a query que retorna as linhas
         let rows = query_builder.fetch_all(&instance.pool).await?;
         Ok(rows)
     }
-    
 
     pub async fn query<T>(query: &str) -> Result<Vec<T>, sqlx::Error>
     where
