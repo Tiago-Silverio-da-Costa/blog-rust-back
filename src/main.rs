@@ -17,6 +17,10 @@ pub mod mvc {
         pub mod user {
             pub mod model_user;
         }
+
+        pub mod post {
+            pub mod model_post;
+        }
     }
 
     pub mod controllers {
