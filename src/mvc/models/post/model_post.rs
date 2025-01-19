@@ -64,6 +64,11 @@ impl ModelPost {
                             "id": row.try_get::<i32, _>("id").unwrap_or_default(),
                             "title": row.try_get::<String, _>("title").unwrap_or_default(),
                             "content": row.try_get::<String, _>("content").unwrap_or_default(),
+                            "author_id": row.try_get::<i32, _>("author_id").unwrap_or_default(),
+                            "category_id": row.try_get::<i32, _>("category_id").unwrap_or_default(),
+                            "description": row.try_get::<String, _>("description").unwrap_or_default(),
+                            "publication_date": row.try_get::<NaiveDateTime, _>("publication_date").unwrap_or_default(),
+                            "post_image_url": row.try_get::<String, _>("post_image_url").unwrap_or_default(),
                         })
                     })
                     .collect();
@@ -111,7 +116,7 @@ impl ModelPost {
                     "category_name": row.try_get::<String, _>("category_name").unwrap_or_default(),
                     "title": row.try_get::<String, _>("title").unwrap_or_default(),
                     "description": row.try_get::<String, _>("description").unwrap_or_default(),
-                    "publication_date": row.try_get::<NaiveDateTime, _>("publication_date").unwrap_or_default(),
+                    "publication_date": row.try_get::<NaiveDateTime, _>("publication_date").unwrap_or_default().format("%Y-%m-%d").to_string(),
                     "post_image_url": row.try_get::<Option<String>, _>("post_image_url").unwrap_or(None),
                     "content": row.try_get::<String, _>("content").unwrap_or_default(),
                     "created_at": row.try_get::<DateTime<Utc>, _>("created_at").unwrap_or_default(),
