@@ -17,17 +17,29 @@ pub mod mvc {
         pub mod user {
             pub mod model_user;
         }
+
+        pub mod post {
+            pub mod model_post;
+        }
     }
 
     pub mod controllers {
         pub mod user {
             pub mod controller_user;
         }
+        
+        pub mod post {
+            pub mod controller_post;
+        }
     }
 
     pub mod routes {
         pub mod user {
             pub mod route_user;
+        }
+
+        pub mod post {
+            pub mod route_post;
         }
     }
 }
@@ -52,4 +64,5 @@ async fn main() {
     };
 
     axum::serve(listener, app).await.unwrap();
+    println!("passou aqui");
 }
