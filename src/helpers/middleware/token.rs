@@ -7,7 +7,7 @@ use axum::{
 };
 
 use crate::helpers::response::helpers_response::HelpersResponse;
-use crate::mvc::models::user::model_user::UserRequest;
+use crate::mvc::models::user::model_user::LoginRequest;
 use chrono::{Duration, Utc};
 use dotenv::dotenv;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
@@ -39,7 +39,7 @@ impl HelperMiddlewareToken {
         }
     }
 
-    pub async fn create_token(&self, user: Json<UserRequest>) -> Response {
+    pub async fn create_token(&self, user: Json<LoginRequest>) -> Response {
         let now = Utc::now();
         let exp = (now + Duration::hours(24)).timestamp() as usize;
         let iat = now.timestamp() as usize;

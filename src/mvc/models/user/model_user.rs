@@ -16,6 +16,27 @@ use crate::{
 pub struct ModelUser;
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct LoginRequest {
+    pub user: UserRequestLoginSchema,
+}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserRequestLoginSchema {
+    pub email: String,
+    pub password: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserRequestRegister {
+    pub user: UserRequestRegisterSchema,
+}
+#[derive(Debug, Serialize, Deserialize)]
+pub struct UserRequestRegisterSchema {
+    pub name: String,
+    pub email: String,
+    pub password: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct UserRequest {
     pub user: User,
 }
@@ -50,13 +71,15 @@ impl IntoResponse for ApiError {
 }
 
 impl ModelUser {
-    pub async fn insert_user(data: Json<UserRequest>) -> impl IntoResponse {
+    pub async fn insert_user(data: Json<UserRequestRegister>) -> impl IntoResponse {
         let query = "INSERT INTO users (name, email, password) VALUES (?, ?, ?)";
         let params = vec![
             data.user.name.clone(),
             data.user.email.clone(),
             data.user.password.clone(),
         ];
+
+        println!("teste all {}, {}, {}", data.user.email, data.user.name, data.user.password);
 
         match HelperMySql::execute_query_with_params(query, params).await {
             Ok(_) => {
@@ -66,7 +89,6 @@ impl ModelUser {
                     Json(json!({
                         "status": true,
                         "message": "Usuário criado com sucesso",
-                        "data": data.user
                     })),
                 )
                     .into_response()
@@ -83,6 +105,8 @@ impl ModelUser {
     ) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
         let query = "SELECT COUNT(*) as count FROM users WHERE email = ?";
         let params = vec![email];
+
+        println!("teste emailasda {}", email);
 
         match HelperMySql::execute_query_with_params(query, params).await {
             Ok(rows) => {
