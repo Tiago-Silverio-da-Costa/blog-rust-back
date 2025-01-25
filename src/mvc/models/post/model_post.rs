@@ -126,7 +126,6 @@ impl ModelPost {
                 Ok(post)
             }
             Err(err) => {
-                // Retorna erro de execução da query
                 Err(ApiError {
                     status_code: StatusCode::INTERNAL_SERVER_ERROR,
                     message: format!("Erro ao buscar o post: {}", err),
