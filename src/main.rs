@@ -49,6 +49,10 @@ pub mod mvc {
         pub mod post {
             pub mod route_post;
         }
+
+        pub mod comment {
+            pub mod route_comment;
+        }
     }
 }
 
