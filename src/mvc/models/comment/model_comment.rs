@@ -14,7 +14,14 @@ use crate::helpers::db::helpers_mysql::HelperMySql;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CommentRequest {
-    pub comment: Comment,
+    pub comment: CommentRequestSchema,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CommentRequestSchema {
+    post_id: i32,
+    user_id: i32,
+    content: String,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -49,16 +56,17 @@ impl IntoResponse for ApiError {
 pub struct ModelComment;
 
 impl ModelComment {
-    pub async fn insert_comment(post_id: i32, new_comment: CommentRequest) -> Result<(), ApiError> {
+    pub async fn insert_comment(new_comment: CommentRequest) -> Result<(), ApiError> {
         let query = r#"
-        INSERT INTO comments (post_id, user_id, contentm is_deleted, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())
+        INSERT INTO comments (post_id, user_id, content, is_deleted, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())
         "#;
 
+
         let params: Vec<String> = vec![
-            post_id.to_string(),
+            new_comment.comment.post_id.to_string(),
             new_comment.comment.user_id.to_string(),
             new_comment.comment.content.clone(),
-            false.to_string(),
+            0.to_string(),
         ];
 
         match HelperMySql::execute_query_with_params(query, params).await {
