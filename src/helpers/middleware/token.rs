@@ -7,7 +7,7 @@ use axum::{
 };
 
 use crate::helpers::response::helpers_response::HelpersResponse;
-use crate::mvc::models::user::model_user::LoginRequest;
+use crate::mvc::models::user::model_user::User;
 use chrono::{Duration, Utc};
 use dotenv::dotenv;
 use jsonwebtoken::{decode, encode, DecodingKey, EncodingKey, Header, Validation};
@@ -39,19 +39,26 @@ impl HelperMiddlewareToken {
         }
     }
 
-    pub async fn create_token(&self, user: Json<LoginRequest>) -> Response {
+    pub async fn create_token(&self, user: &User) -> Response {
         let now = Utc::now();
         let exp = (now + Duration::hours(24)).timestamp() as usize;
         let iat = now.timestamp() as usize;
 
         let claims = Claims {
-            sub: user.user.email.clone(),
+            sub: user.email.clone(),
             exp,
             iat,
         };
 
         match encode(&Header::default(), &claims, &self.encoding_key) {
-            Ok(_token) => HelpersResponse::success("Query executada", json!("")).into_response(),
+            Ok(_token) => {
+                let response_body = json!({
+                    "message": "Login bem-sucedido",
+                    "token": _token,
+                    "userId": user.id
+                });
+                HelpersResponse::success("Query executada", json!(response_body)).into_response()
+            }
             Err(_) => (
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({
