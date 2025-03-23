@@ -10,7 +10,7 @@ use axum::{
 
 use sqlx::Row;
 
-use crate::helpers::{db::helpers_mysql::HelperMySql};
+use crate::helpers::db::helpers_mysql::HelperMySql;
 
 pub struct ModelPost;
 
@@ -61,9 +61,18 @@ impl ModelPost {
                     .into_iter()
                     .map(|row| {
                         json!({
-                            "id": row.try_get::<i32, _>("id").unwrap_or_default(),
-                            "title": row.try_get::<String, _>("title").unwrap_or_default(),
-                            "content": row.try_get::<String, _>("content").unwrap_or_default(),
+                              "id": row.try_get::<i32, _>("id").unwrap_or_default(),
+                               "author_id": row.try_get::<i32, _>("author_id").unwrap_or_default(),
+                               "author_name": row.try_get::<String, _>("author_name").unwrap_or_default(),
+                               "category_id": row.try_get::<i32, _>("category_id").unwrap_or_default(),
+                               "category_name": row.try_get::<String, _>("category_name").unwrap_or_default(),
+                               "title": row.try_get::<String, _>("title").unwrap_or_default(),
+                               "description": row.try_get::<String, _>("description").unwrap_or_default(),
+                               "publication_date": row.try_get::<NaiveDateTime, _>("publication_date").unwrap_or_default(),
+                               "post_image_url": row.try_get::<Option<String>, _>("post_image_url").unwrap_or(None),
+                               "content": row.try_get::<String, _>("content").unwrap_or_default(),
+                               "created_at": row.try_get::<DateTime<Utc>, _>("created_at").unwrap_or_default(),
+                               "updated_at": row.try_get::<DateTime<Utc>, _>("updated_at").unwrap_or_default(),
                         })
                     })
                     .collect();
