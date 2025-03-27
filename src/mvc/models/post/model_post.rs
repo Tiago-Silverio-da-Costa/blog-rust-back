@@ -125,7 +125,7 @@ impl ModelPost {
                     "category_name": row.try_get::<String, _>("category_name").unwrap_or_default(),
                     "title": row.try_get::<String, _>("title").unwrap_or_default(),
                     "description": row.try_get::<String, _>("description").unwrap_or_default(),
-                    "publication_date": row.try_get::<NaiveDateTime, _>("publication_date").unwrap_or_default(),
+                    "publication_date": row.try_get::<NaiveDateTime, _>("publication_date").unwrap_or_default().format("%Y-%m-%d").to_string(),
                     "post_image_url": row.try_get::<Option<String>, _>("post_image_url").unwrap_or(None),
                     "content": row.try_get::<String, _>("content").unwrap_or_default(),
                     "created_at": row.try_get::<DateTime<Utc>, _>("created_at").unwrap_or_default(),
@@ -135,7 +135,6 @@ impl ModelPost {
                 Ok(post)
             }
             Err(err) => {
-                // Retorna erro de execução da query
                 Err(ApiError {
                     status_code: StatusCode::INTERNAL_SERVER_ERROR,
                     message: format!("Erro ao buscar o post: {}", err),
