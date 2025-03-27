@@ -53,7 +53,15 @@ impl IntoResponse for ApiError {
 
 impl ModelPost {
     pub async fn select_post() -> Result<Vec<serde_json::Value>, sqlx::Error> {
-        let query = "SELECT * FROM posts"; // Ajuste para a sua tabela
+        let query = "    SELECT 
+                p.id AS post_id, p.author_id, a.id AS author_id, a.name AS author_name,
+                p.category_id, c.id AS category_id, c.name AS category_name,
+                p.*
+            FROM 
+                    posts p
+                LEFT JOIN authors a ON p.author_id = a.id
+                LEFT JOIN categories c ON p.category_id = c.id;
+          "; // Ajuste para a sua tabela
         match HelperMySql::execute_select(query).await {
             Ok(rows) => {
                 // Convertendo linhas para JSON
@@ -85,17 +93,14 @@ impl ModelPost {
     pub async fn select_post_by_id(post_id: i32) -> Result<serde_json::Value, ApiError> {
         let query = r#"
             SELECT 
-                posts.*,
-                categories.name AS category_name,
-                users.name AS author_name
+                p.id AS post_id, p.author_id, a.id AS author_id, a.name AS author_name,
+                p.category_id, c.id AS category_id, c.name AS category_name,
+                p.title, p.description, p.publication_date, p.post_image_url, 
+                p.content, p.created_at, p.updated_at
             FROM 
-                posts
-            LEFT JOIN 
-                categories ON posts.category_id = categories.id
-            LEFT JOIN 
-                users ON posts.author_id = users.id
-            WHERE 
-                posts.id = ?
+                posts p
+            LEFT JOIN authors a ON p.author_id = a.id
+            LEFT JOIN categories c ON p.category_id = c.id;
         "#;
 
         // Executa a consulta ao banco de dados com o ID como parâmetro
