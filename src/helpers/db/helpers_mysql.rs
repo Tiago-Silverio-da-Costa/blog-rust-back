@@ -22,15 +22,15 @@ impl HelperMySql {
         let host = env::var("MYSQL_CONN_DB_HOST").expect("MYSQL_CONN_DB_HOST não configurada");
         let username =
             env::var("MYSQL_CONN_DB_USERNAME").expect("MYSQL_CONN_DB_USERNAME não configurada");
-            let password =
+        let password =
             env::var("MYSQL_CONN_DB_PASSWORD").expect("MYSQL_CONN_DB_PASSWORD não configurada");
-            let database =
+        let database =
             env::var("MYSQL_CONN_DB_DATABASE").expect("MYSQL_CONN_DB_DATABASE não configurada");
-            let port = env::var("MYSQL_CONN_DB_PORT")
+        let port = env::var("MYSQL_CONN_DB_PORT")
             .expect("MYSQL_CONN_DB_PORT não configurada")
             .parse::<u16>()
             .expect("MYSQL_CONN_DB_PORT não é um número válido");
-            
+
         let optins = MySqlConnectOptions::new()
             .host(&host)
             .username(&username)
