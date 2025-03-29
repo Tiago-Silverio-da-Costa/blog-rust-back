@@ -1,3 +1,4 @@
+use bcrypt::{hash, verify, DEFAULT_COST};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -9,8 +10,9 @@ use axum::{
 
 use sqlx::Row;
 
-use crate::{
-    helpers::db::helpers_mysql::HelperMySql, helpers::response::helpers_response::HelpersResponse,
+use crate::helpers::{
+    db::helpers_mysql::HelperMySql, middleware::token::HelperMiddlewareToken,
+    response::helpers_response::HelpersResponse,
 };
 
 pub struct ModelUser;
@@ -71,15 +73,49 @@ impl IntoResponse for ApiError {
 }
 
 impl ModelUser {
+    pub async fn auth_user(data: &LoginRequest) -> impl IntoResponse {
+        let query = "SELECT password from users WHERE email = ?";
+        let params = vec![data.user.email.clone()];
+
+        match HelperMySql::execute_query_with_params(query, params).await {
+            Ok(rows) => {
+                if let Some(row) = rows.get(0) {
+                    let hashed_password: String = row.try_get("password").unwrap_or_default();
+
+                    if verify(&data.user.password, &hashed_password).unwrap_or(false) {
+                        let auth: HelperMiddlewareToken = HelperMiddlewareToken::new();
+                        return auth.create_token(data).await;
+                    } else {
+                        (HelpersResponse::error("Credenciais inválidas")).into_response()
+                    }
+                } else {
+                    (HelpersResponse::error("Usuário não encontrado")).into_response()
+                }
+            }
+
+            Err(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "status": false,
+                    "message": "Erro ao buscar usuário"
+                })),
+            )
+                .into_response(),
+        }
+    }
+
     pub async fn insert_user(data: Json<UserRequestRegister>) -> impl IntoResponse {
+        let hashed_password = match hash(&data.user.password, DEFAULT_COST) {
+            Ok(hp) => hp,
+            Err(_) => return (HelpersResponse::error("Erro ao processar a senha")).into_response(),
+        };
+
         let query = "INSERT INTO users (name, email, password) VALUES (?, ?, ?)";
         let params = vec![
             data.user.name.clone(),
             data.user.email.clone(),
-            data.user.password.clone(),
+            hashed_password.to_string(),
         ];
-
-        println!("teste all {}, {}, {}", data.user.email, data.user.name, data.user.password);
 
         match HelperMySql::execute_query_with_params(query, params).await {
             Ok(_) => {
@@ -105,8 +141,6 @@ impl ModelUser {
     ) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
         let query = "SELECT COUNT(*) as count FROM users WHERE email = ?";
         let params = vec![email];
-
-        println!("teste emailasda {}", email);
 
         match HelperMySql::execute_query_with_params(query, params).await {
             Ok(rows) => {

@@ -39,7 +39,7 @@ impl HelperMiddlewareToken {
         }
     }
 
-    pub async fn create_token(&self, user: Json<LoginRequest>) -> Response {
+    pub async fn create_token(&self, user: &LoginRequest) -> Response {
         let now = Utc::now();
         let exp = (now + Duration::hours(24)).timestamp() as usize;
         let iat = now.timestamp() as usize;
@@ -51,14 +51,9 @@ impl HelperMiddlewareToken {
         };
 
         match encode(&Header::default(), &claims, &self.encoding_key) {
-            Ok(_token) => HelpersResponse::success("Query executada", json!("")).into_response(),
-            Err(_) => (
-                StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({
-                    "message": "Erro ao gerar token"
-                })),
-            )
-                .into_response(),
+            Ok(token) => (HelpersResponse::success("Login bem-sucedido", &token),).into_response(),
+
+            Err(_) => (HelpersResponse::error("Erro ao gerar token")).into_response(),
         }
     }
     pub async fn verify_token(&self, mut req: Request<Body>, next: Next) -> Response {
