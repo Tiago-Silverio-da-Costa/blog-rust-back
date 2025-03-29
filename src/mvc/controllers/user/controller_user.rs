@@ -1,5 +1,5 @@
 use crate::mvc::models::user::model_user::{
-    CodeEmailPayload, EmailPayload, LoginRequest, ModelUser, UserRequestRegister,
+    CodeEmailPayload, EmailPayload, LoginRequest, ModelUser, UserPassword, UserRequestRegister,
 };
 use crate::mvc::services::user::email::services_user_email::ServicesUserEmail;
 use axum::{http::StatusCode, response::IntoResponse, Json};
@@ -71,5 +71,11 @@ impl ControllerUser {
                 Json(json!({ "status": false, "message": "Código inválido" })),
             )),
         }
+    }
+
+    pub async fn fg_update_user_password(
+        data: Json<UserPassword>,
+    ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
+        Ok(ModelUser::fg_update_user_password(data).await)
     }
 }

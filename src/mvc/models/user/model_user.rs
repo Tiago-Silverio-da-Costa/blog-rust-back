@@ -25,6 +25,11 @@ pub struct UserCode {
 }
 
 #[derive(Deserialize)]
+pub struct UserPassword {
+    pub email: String,
+    pub password: String,
+}
+#[derive(Deserialize)]
 pub struct EmailPayload {
     pub email: String,
 }
@@ -262,6 +267,28 @@ impl ModelUser {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "status": false, "message": "Erro ao verificar email" })),
             )),
+        }
+    }
+
+    pub async fn fg_update_user_password(data: Json<UserPassword>) -> impl IntoResponse {
+        let hashed_password = match hash(&data.password, DEFAULT_COST) {
+            Ok(hp) => hp,
+            Err(_) => return (HelpersResponse::error("Erro ao processar a senha")).into_response(),
+        };
+
+        let query = "UPDATE users SET password = ? WHERE email = ?";
+        let params = vec![hashed_password.to_string(), data.email.to_string()];
+
+        match HelperMySql::execute_query_with_params(query, params).await {
+            Ok(_) => (
+                StatusCode::CREATED,
+                Json(json!({
+                    "status": true,
+                    "message": "Senha atualiza com sucesso",
+                })),
+            )
+                .into_response(),
+            Err(_e) => HelpersResponse::error("Erro ao atualizar senha!").into_response(),
         }
     }
 }

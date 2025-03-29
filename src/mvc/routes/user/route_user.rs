@@ -36,7 +36,11 @@ pub fn create_routes() -> Router {
             "/fg/send/email",
             post(ControllerUser::fg_send_code_to_email),
         )
-        .route("/fg/check/code", post(ControllerUser::fg_check_code));
+        .route("/fg/check/code", post(ControllerUser::fg_check_code))
+        .route(
+            "/fg/update/password",
+            post(ControllerUser::fg_update_user_password),
+        );
 
     let protected_routes = Router::new().layer(from_fn(auth_middleware));
 
