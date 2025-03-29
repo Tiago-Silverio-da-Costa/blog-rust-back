@@ -17,6 +17,11 @@ use crate::helpers::{
 
 pub struct ModelUser;
 
+#[derive(Deserialize)]
+pub struct EmailPayload {
+    pub email: String,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LoginRequest {
     pub user: UserRequestLoginSchema,
@@ -184,6 +189,51 @@ impl ModelUser {
                     })),
                 ))
             }
+        }
+    }
+
+    pub async fn fg_verify_email_already_exists(
+        email: &str,
+    ) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+        let query = "SELECT COUNT(*) as count FROM users WHERE email = ?";
+        let params = vec![email];
+        println!("params {:?}", params);
+
+        match HelperMySql::execute_query_with_params(query, params).await {
+            Ok(rows) => {
+                if let Some(row) = rows.get(0) {
+                    let count: i64 = row.try_get("count").unwrap_or(0);
+
+                    // Se count for maior que 0, o e-mail existe, e retornamos Ok
+                    if count > 0 {
+                        Ok(print!("achou email"))
+                    } else {
+                        // Caso não exista, retorna um erro
+                        Err((
+                            StatusCode::BAD_REQUEST,
+                            Json(json!({
+                                "status": false,
+                                "message": "Email não cadastrado no sistema"
+                            })),
+                        ))
+                    }
+                } else {
+                    Err((
+                        StatusCode::INTERNAL_SERVER_ERROR,
+                        Json(json!({
+                            "status": false,
+                            "message": "Erro inesperado na consulta"
+                        })),
+                    ))
+                }
+            }
+            Err(_e) => Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "status": false,
+                    "message": "Erro ao verificar email"
+                })),
+            )),
         }
     }
 }

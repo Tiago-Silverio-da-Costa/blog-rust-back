@@ -31,10 +31,13 @@ pub fn create_routes() -> Router {
 
     let public_routes = Router::new()
         .route("/register", post(ControllerUser::register_user))
-        .route("/login", post(ControllerUser::login));
+        .route("/login", post(ControllerUser::login))
+        .route(
+            "/fg/send/email",
+            post(ControllerUser::fg_send_code_to_email),
+        );
 
-    let protected_routes = Router::new()
-        .layer(from_fn(auth_middleware));
+    let protected_routes = Router::new().layer(from_fn(auth_middleware));
 
     Router::new()
         .merge(public_routes)

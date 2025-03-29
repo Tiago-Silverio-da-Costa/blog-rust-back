@@ -27,7 +27,7 @@ pub mod mvc {
         pub mod user {
             pub mod controller_user;
         }
-        
+
         pub mod post {
             pub mod controller_post;
         }
@@ -42,13 +42,20 @@ pub mod mvc {
             pub mod route_post;
         }
     }
+
+    pub mod services {
+        pub mod user {
+            pub mod email {
+                pub mod services_user_email;
+            }
+        }
+    }
 }
 
 use crate::helpers::db::helpers_mysql::HelperMySql;
 
 #[tokio::main]
 async fn main() {
-
     let app: axum::Router = server::create_app().await;
     let listener: tokio::net::TcpListener =
         tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
