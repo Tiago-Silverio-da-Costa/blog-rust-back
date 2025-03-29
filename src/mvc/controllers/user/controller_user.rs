@@ -1,13 +1,12 @@
 use crate::mvc::models::user::model_user::{
-    EmailPayload, LoginRequest, ModelUser, UserRequestRegister,
+    CodeEmailPayload, EmailPayload, LoginRequest, ModelUser, UserRequestRegister,
 };
 use crate::mvc::services::user::email::services_user_email::ServicesUserEmail;
 use axum::{http::StatusCode, response::IntoResponse, Json};
 use rand::distributions::Uniform;
 use rand::seq::SliceRandom;
 use rand::{distributions::Alphanumeric, thread_rng, Rng};
-use serde_json::Value;
-
+use serde_json::{json, Value};
 pub struct ControllerUser;
 
 fn generate_code() -> String {
@@ -56,5 +55,21 @@ impl ControllerUser {
         ModelUser::update_user_code(user.id, &code).await?;
 
         Ok(ServicesUserEmail::send_code(&payload.email, &code).await)
+    }
+
+    pub async fn fg_check_code(
+        Json(payload): Json<CodeEmailPayload>,
+    ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
+        let user = ModelUser::fg_check_code(&payload.email, &payload.code).await?;
+
+        match user.code {
+            Some(stored_code) if stored_code == payload.code => {
+                Ok(Json(json!({ "status": true, "message": "Código válido" })))
+            }
+            _ => Err((
+                StatusCode::BAD_REQUEST,
+                Json(json!({ "status": false, "message": "Código inválido" })),
+            )),
+        }
     }
 }

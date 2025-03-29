@@ -29,6 +29,12 @@ pub struct EmailPayload {
     pub email: String,
 }
 
+#[derive(Deserialize)]
+pub struct CodeEmailPayload {
+    pub code: String,
+    pub email: String,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LoginRequest {
     pub user: UserRequestLoginSchema,
@@ -225,6 +231,36 @@ impl ModelUser {
             Err(_) => Err((
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "status": false, "message": "Erro ao atualizar código" })),
+            )),
+        }
+    }
+
+    pub async fn fg_check_code(
+        email: &str,
+        code: &str,
+    ) -> Result<UserCode, (StatusCode, Json<serde_json::Value>)> {
+        let query = "SELECT id, email, code FROM users WHERE email = ? AND code = ?";
+        let params = vec![email, code];
+
+        match HelperMySql::execute_query_with_params(query, params).await {
+            Ok(rows) => {
+                if let Some(row) = rows.get(0) {
+                    let user = UserCode {
+                        id: row.try_get("id").unwrap_or(0),
+                        email: row.try_get("email").unwrap_or_default(),
+                        code: row.try_get("code").ok(), // O campo code pode ser NULL, então usamos Option
+                    };
+                    Ok(user)
+                } else {
+                    Err((
+                        StatusCode::BAD_REQUEST,
+                        Json(json!({ "status": false, "message": "Email não cadastrado" })),
+                    ))
+                }
+            }
+            Err(_) => Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "status": false, "message": "Erro ao verificar email" })),
             )),
         }
     }
