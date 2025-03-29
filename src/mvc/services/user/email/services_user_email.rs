@@ -1,13 +1,13 @@
 use crate::helpers::response::helpers_response::HelpersResponse;
 use axum::response::IntoResponse;
-use lettre::message::{Message, MultiPart, SinglePart};
-use lettre::transport::smtp::authentication::Credentials;
-use lettre::{SmtpTransport, Transport};
+use dotenv::dotenv;
+use reqwest::Client;
+use serde_json::json;
 pub struct ServicesUserEmail;
 
 impl ServicesUserEmail {
     pub async fn send_code(email: &str, code: &str) -> impl IntoResponse {
-        // Cria o corpo do e-mail em HTML com um design personalizado
+        dotenv().ok();
         let html_body = format!(
             r#"
             <html>
@@ -44,43 +44,44 @@ impl ServicesUserEmail {
             code
         );
 
-        // Também é bom enviar um fallback em texto puro
         let text_body = format!(
             "Recuperação de Senha\n\nUtilize o código: {}\n\nSe você não solicitou essa ação, desconsidere este e-mail.",
             code
         );
 
-        // Cria a mensagem de e-mail com corpo multipart (plain text e HTML)
-        let email_message = Message::builder()
-            .from("Seu Nome <fa927837e892ce@mailtrap.io>".parse().unwrap())
-            .to(format!("<{}>", email).parse().unwrap())
-            .subject("Recuperação de Senha")
-            .multipart(
-                MultiPart::alternative()
-                    .singlepart(SinglePart::plain(text_body))
-                    .singlepart(SinglePart::html(html_body)),
-            )
-            .unwrap();
-        println!("email_message {:?}", email_message);
-        // Configura as credenciais e o transporte SMTP
-        let creds = Credentials::new("fa927837e892ce".to_string(), "8ddb12ce08a25d".to_string());
-        println!("creds {:?}", creds);
+        let mailtrap_token =
+            std::env::var("MAILTRAP_TOKEN_SECRET").expect("MAILTRAP_TOKEN_SECRET must set");
+        let mailtrap_api_token =
+            std::env::var("MAILTRAP_API_URL").expect("MAILTRAP_API_URL must set");
+        let mailtrap_email_sender =
+            std::env::var("MAILTRAP_EMAIL_SENDER").expect("MAILTRAP_EMAIL_SENDER must set");
 
-        let mailer = SmtpTransport::relay("sandbox.smtp.mailtrap.io")
-            .unwrap()
-            .port(2525)
-            .credentials(creds)
-            .build();
+        let payload = json!({
+            "from": {"email": mailtrap_email_sender,},
+            "to": [{"email": email,}],
+            "subject": "Recuperação de Senha",
+            "text": text_body,
+            "html": html_body,
+        });
 
-        println!("mailer {:?}", mailer);
+        let client = Client::new();
+        let response = client
+            .post(mailtrap_api_token)
+            .header("Content-Type", "application/json")
+            .bearer_auth(mailtrap_token)
+            .body(payload.to_string())
+            .send()
+            .await;
 
-        // Tenta enviar o e-mail
-        match mailer.send(&email_message) {
-            Ok(_) => (HelpersResponse::success("E-mail enviado com sucesso!", ""),).into_response(),
-            Err(e) => {
-                eprintln!("Erro ao enviar e-mail: {:?}", e);
-                (HelpersResponse::error("Falha ao enviar o e-mail")).into_response()
+        match response {
+            Ok(resp) if resp.status().is_success() => {
+                (HelpersResponse::success("E-mail enviado com sucesso!", ""),).into_response()
             }
+            Ok(_) => (HelpersResponse::error("Falha ao enviar o e-mail"),).into_response(),
+            Err(_) => (HelpersResponse::error(
+                "Erro ao conectar ao serviço de e-mail",
+            ),)
+                .into_response(),
         }
     }
 }

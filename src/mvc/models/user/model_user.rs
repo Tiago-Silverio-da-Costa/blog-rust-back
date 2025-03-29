@@ -17,6 +17,13 @@ use crate::helpers::{
 
 pub struct ModelUser;
 
+#[derive(Debug, serde::Deserialize, serde::Serialize)]
+pub struct UserCode {
+    pub id: i64,
+    pub email: String,
+    pub code: Option<String>,
+}
+
 #[derive(Deserialize)]
 pub struct EmailPayload {
     pub email: String,
@@ -123,21 +130,15 @@ impl ModelUser {
         ];
 
         match HelperMySql::execute_query_with_params(query, params).await {
-            Ok(_) => {
-                // Retorna sucesso com o usuário criado
-                (
-                    StatusCode::CREATED,
-                    Json(json!({
-                        "status": true,
-                        "message": "Usuário criado com sucesso",
-                    })),
-                )
-                    .into_response()
-            }
-            Err(_e) => {
-                // Retorna erro genérico
-                HelpersResponse::error("Erro ao inserir usuário").into_response()
-            }
+            Ok(_) => (
+                StatusCode::CREATED,
+                Json(json!({
+                    "status": true,
+                    "message": "Usuário criado com sucesso",
+                })),
+            )
+                .into_response(),
+            Err(_e) => HelpersResponse::error("Erro ao inserir usuário").into_response(),
         }
     }
 
@@ -149,14 +150,10 @@ impl ModelUser {
 
         match HelperMySql::execute_query_with_params(query, params).await {
             Ok(rows) => {
-                // Verifica se há alguma linha retornada
                 if let Some(row) = rows.get(0) {
-                    // Extrai o valor do campo "count"
                     let count: i64 = row.try_get("count").unwrap_or(0);
 
-                    // Verifica se o email já existe
                     if count > 0 {
-                        // Email já cadastrado
                         Err((
                             StatusCode::BAD_REQUEST,
                             Json(json!({
@@ -165,57 +162,7 @@ impl ModelUser {
                             })),
                         ))
                     } else {
-                        // Email não existe
                         Ok(())
-                    }
-                } else {
-                    // Caso não haja nenhuma linha, considere como erro
-                    Err((
-                        StatusCode::INTERNAL_SERVER_ERROR,
-                        Json(json!({
-                            "status": false,
-                            "message": "Erro inesperado na consulta"
-                        })),
-                    ))
-                }
-            }
-            Err(_e) => {
-                // Erro ao executar a consulta
-                Err((
-                    StatusCode::INTERNAL_SERVER_ERROR,
-                    Json(json!({
-                        "status": false,
-                        "message": "Erro ao verificar email"
-                    })),
-                ))
-            }
-        }
-    }
-
-    pub async fn fg_verify_email_already_exists(
-        email: &str,
-    ) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
-        let query = "SELECT COUNT(*) as count FROM users WHERE email = ?";
-        let params = vec![email];
-        println!("params {:?}", params);
-
-        match HelperMySql::execute_query_with_params(query, params).await {
-            Ok(rows) => {
-                if let Some(row) = rows.get(0) {
-                    let count: i64 = row.try_get("count").unwrap_or(0);
-
-                    // Se count for maior que 0, o e-mail existe, e retornamos Ok
-                    if count > 0 {
-                        Ok(print!("achou email"))
-                    } else {
-                        // Caso não exista, retorna um erro
-                        Err((
-                            StatusCode::BAD_REQUEST,
-                            Json(json!({
-                                "status": false,
-                                "message": "Email não cadastrado no sistema"
-                            })),
-                        ))
                     }
                 } else {
                     Err((
@@ -233,6 +180,51 @@ impl ModelUser {
                     "status": false,
                     "message": "Erro ao verificar email"
                 })),
+            )),
+        }
+    }
+
+    pub async fn fg_verify_email_already_exists(
+        email: &str,
+    ) -> Result<UserCode, (StatusCode, Json<serde_json::Value>)> {
+        let query = "SELECT id, email FROM users WHERE email = ?";
+        let params = vec![email];
+
+        match HelperMySql::execute_query_with_params(query, params).await {
+            Ok(rows) => {
+                if let Some(row) = rows.get(0) {
+                    let user = UserCode {
+                        id: row.try_get("id").unwrap_or(0),
+                        email: row.try_get("email").unwrap_or_default(),
+                        code: row.try_get("code").ok(),
+                    };
+                    Ok(user)
+                } else {
+                    Err((
+                        StatusCode::BAD_REQUEST,
+                        Json(json!({ "status": false, "message": "Email não cadastrado" })),
+                    ))
+                }
+            }
+            Err(_) => Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "status": false, "message": "Erro ao verificar email" })),
+            )),
+        }
+    }
+
+    pub async fn update_user_code(
+        user_id: i64,
+        code: &str,
+    ) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+        let query = "UPDATE users SET code = ? WHERE id = ?";
+        let params = vec![code.to_string(), user_id.to_string()];
+
+        match HelperMySql::execute_query_with_params(query, params).await {
+            Ok(_) => Ok(()),
+            Err(_) => Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "status": false, "message": "Erro ao atualizar código" })),
             )),
         }
     }

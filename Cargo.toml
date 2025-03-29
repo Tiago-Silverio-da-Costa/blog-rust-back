@@ -17,5 +17,6 @@ tokio = { version = "1.43.0", features = ["full"] }
 tower = "0.4"
 bcrypt = "0.15"
 rand = "0.8"
+reqwest = { version = "0.11", features = ["json"] }
 tower-http = { version = "0.6.2", features = ["cors"] }
 uuid = { version = "1.11.1", features = ["serde", "v4"] }
