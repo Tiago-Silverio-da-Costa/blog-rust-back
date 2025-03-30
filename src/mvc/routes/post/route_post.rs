@@ -31,8 +31,9 @@ pub fn create_routes() -> Router {
         .allow_headers(Any);
 
     let public_routes = Router::new()
-        .route("/post", get(ControllerPost::get_all_posts))
-        .route("/post/{id}", get(ControllerPost::get_post_by_id));
+        .route("/", get(ControllerPost::get_all_posts))
+        .route("/{id}", get(ControllerPost::get_post_by_id))
+        .route("/slug/{slug}", get(ControllerPost::get_post_by_slug));
 
     let protected_routes = Router::new().layer(from_fn(auth_middleware));
 

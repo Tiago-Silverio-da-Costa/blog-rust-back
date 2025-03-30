@@ -10,7 +10,7 @@ use axum::{
 
 use sqlx::Row;
 
-use crate::helpers::db::helpers_mysql::HelperMySql;
+use crate::helpers::{db::helpers_mysql::HelperMySql, response::helpers_response::HelpersResponse};
 
 pub struct ModelPost;
 
@@ -21,16 +21,17 @@ pub struct PostRequest {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Post {
-    id: i32,
-    author_id: i32,
-    category_id: i32,
-    title: String,
-    description: String,
-    publication_date: NaiveDateTime,
-    post_image_url: Option<String>,
-    content: String,
-    created_at: DateTime<Utc>,
-    updated_at: DateTime<Utc>,
+    pub id: i32,
+    pub author_id: i32,
+    pub category_id: i32,
+    pub title: String,
+    pub description: String,
+    pub publication_date: NaiveDateTime,
+    pub post_image_url: Option<String>,
+    pub content: String,
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub slug: String,
 }
 
 pub struct ApiError {
@@ -81,6 +82,8 @@ impl ModelPost {
                                "content": row.try_get::<String, _>("content").unwrap_or_default(),
                                "created_at": row.try_get::<DateTime<Utc>, _>("created_at").unwrap_or_default(),
                                "updated_at": row.try_get::<DateTime<Utc>, _>("updated_at").unwrap_or_default(),
+                               "slug": row.try_get::<String, _>("slug").unwrap_or_default(),
+
                         })
                     })
                     .collect();
@@ -141,6 +144,88 @@ impl ModelPost {
                     message: format!("Erro ao buscar o post: {}", err),
                 })
             }
+        }
+    }
+
+    pub async fn get_all_slugs() -> Result<Vec<String>, sqlx::Error> {
+        let query = "SELECT slug FROM  posts";
+        let rows = HelperMySql::execute_select(query).await?;
+        let slugs: Vec<String> = rows.into_iter().map(|row| row.get("slug")).collect();
+        Ok(slugs)
+    }
+
+    pub async fn create_post(slug: &str, post_request: PostRequest) -> impl IntoResponse {
+        let query = r#"
+        INSERT INTO posts (author_id, category_id, title, description, publication_date, post_image_url, content, created_at, updated_at, slug)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    "#;
+
+        let params = vec![
+            post_request.post.author_id.to_string(),
+            post_request.post.category_id.to_string(),
+            post_request.post.title,
+            post_request.post.description,
+            post_request.post.publication_date.to_string(),
+            post_request.post.post_image_url.unwrap_or_default(),
+            post_request.post.content,
+            Utc::now().to_string(),
+            Utc::now().to_string(),
+            slug.to_string(),
+        ];
+
+        match HelperMySql::execute_query_with_params(query, params).await {
+            Ok(_) => HelpersResponse::success("Post criado!", slug).into_response(),
+            Err(_e) => HelpersResponse::error("Erro ao criar post!").into_response(),
+        }
+    }
+
+    pub async fn select_post_by_slug(slug: String) -> Result<serde_json::Value, ApiError> {
+        let query = r#"
+        SELECT 
+            p.id AS post_id, p.author_id, a.id AS author_id, a.name AS author_name,
+            p.category_id, c.id AS category_id, c.name AS category_name,
+            p.title, p.description, p.publication_date, p.post_image_url, 
+            p.content, p.created_at, p.updated_at, p.slug
+        FROM 
+            posts p
+        LEFT JOIN authors a ON p.author_id = a.id
+        LEFT JOIN categories c ON p.category_id = c.id
+        WHERE p.slug = ?
+        "#;
+
+        let params: Vec<String> = vec![slug];
+        match HelperMySql::execute_query_with_params(query, params).await {
+            Ok(rows) => {
+                if rows.is_empty() {
+                    return Err(ApiError {
+                        status_code: StatusCode::NOT_FOUND,
+                        message: "Post não encontrado".to_string(),
+                    });
+                }
+
+                let row = &rows[0];
+                let post = json!({
+                    "id": row.try_get::<i32, _>("post_id").unwrap_or_default(),
+                    "author_id": row.try_get::<i32, _>("author_id").unwrap_or_default(),
+                    "author_name": row.try_get::<String, _>("author_name").unwrap_or_default(),
+                    "category_id": row.try_get::<i32, _>("category_id").unwrap_or_default(),
+                    "category_name": row.try_get::<String, _>("category_name").unwrap_or_default(),
+                    "title": row.try_get::<String, _>("title").unwrap_or_default(),
+                    "description": row.try_get::<String, _>("description").unwrap_or_default(),
+                    "publication_date": row.try_get::<NaiveDateTime, _>("publication_date").unwrap_or_default(),
+                    "post_image_url": row.try_get::<Option<String>, _>("post_image_url").unwrap_or(None),
+                    "content": row.try_get::<String, _>("content").unwrap_or_default(),
+                    "created_at": row.try_get::<DateTime<Utc>, _>("created_at").unwrap_or_default(),
+                    "updated_at": row.try_get::<DateTime<Utc>, _>("updated_at").unwrap_or_default(),
+                    "slug": row.try_get::<String, _>("slug").unwrap_or_default(),
+                });
+
+                Ok(post)
+            }
+            Err(err) => Err(ApiError {
+                status_code: StatusCode::INTERNAL_SERVER_ERROR,
+                message: format!("Erro ao buscar o post: {}", err),
+            }),
         }
     }
 }
