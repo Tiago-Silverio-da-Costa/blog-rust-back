@@ -1,14 +1,12 @@
-use bcrypt::{hash, verify, DEFAULT_COST};
-use chrono::{DateTime, Duration, Utc};
-use serde::{Deserialize, Serialize};
-use serde_json::json;
-
 use axum::{
     extract::Json,
     http::StatusCode,
     response::{IntoResponse, Response},
 };
-
+use bcrypt::{hash, verify, DEFAULT_COST};
+use chrono::{DateTime, Duration, Utc};
+use serde::{Deserialize, Serialize};
+use serde_json::json;
 use sqlx::Row;
 
 use crate::helpers::{
@@ -76,6 +74,7 @@ pub struct UserRequest {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct User {
+    pub id: i32,
     pub name: String,
     pub bio: String,
     pub photo_url: String,
@@ -105,17 +104,29 @@ impl IntoResponse for ApiError {
 
 impl ModelUser {
     pub async fn auth_user(data: &LoginRequest) -> impl IntoResponse {
-        let query = "SELECT password from users WHERE email = ?";
+        let query = "SELECT * from users WHERE email = ?";
         let params = vec![data.user.email.clone()];
 
         match HelperMySql::execute_query_with_params(query, params).await {
             Ok(rows) => {
+                // if rows.is_empty() {
+                //     return (HelpersResponse::error("Usuário não encontrado")).into_response();
+                // }
+                // for (i, row) in rows.iter().enumerate() {
+                //     println!("Row {}:", i);
+                //     for column in row.columns() {
+                //         let column_name = column.name();
+                //         let value: Option<&str> = row.try_get(column_name).ok();
+                //         println!("  {}: {:?}", column_name, value);
+                //     }
+                // }
                 if let Some(row) = rows.get(0) {
                     let hashed_password: String = row.try_get("password").unwrap_or_default();
 
                     if verify(&data.user.password, &hashed_password).unwrap_or(false) {
                         let auth: HelperMiddlewareToken = HelperMiddlewareToken::new();
-                        return auth.create_token(data).await;
+                        let user_id: i32 = row.try_get("id").unwrap_or_default();
+                        return auth.create_token(data, user_id).await;
                     } else {
                         (HelpersResponse::error("Credenciais inválidas")).into_response()
                     }

@@ -39,11 +39,10 @@ impl HelperMiddlewareToken {
         }
     }
 
-    pub async fn create_token(&self, user: &LoginRequest) -> Response {
+    pub async fn create_token(&self, user: &LoginRequest, user_id: i32) -> Response {
         let now = Utc::now();
         let exp = (now + Duration::hours(24)).timestamp() as usize;
         let iat = now.timestamp() as usize;
-
         let claims = Claims {
             sub: user.user.email.clone(),
             exp,
@@ -51,8 +50,13 @@ impl HelperMiddlewareToken {
         };
 
         match encode(&Header::default(), &claims, &self.encoding_key) {
-            Ok(token) => (HelpersResponse::success("Login bem-sucedido", &token),).into_response(),
-
+            Ok(token) => {
+                let results = json!({
+                    "token": token,
+                    "user_id": user_id,
+                });
+                HelpersResponse::success("Login bem-sucedido", results)
+            }
             Err(_) => (HelpersResponse::error("Erro ao gerar token")).into_response(),
         }
     }
