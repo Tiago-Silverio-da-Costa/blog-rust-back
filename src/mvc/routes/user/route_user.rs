@@ -36,13 +36,12 @@ pub fn create_routes() -> Router {
             "/fg/send/email",
             post(ControllerUser::fg_send_code_to_email),
         )
-        .route("/fg/check/code", post(ControllerUser::fg_check_code))
-        .route(
-            "/fg/update/password",
-            post(ControllerUser::fg_update_user_password),
-        );
+        .route("/fg/check/code", post(ControllerUser::fg_check_code));
 
-    let protected_routes = Router::new().layer(from_fn(auth_middleware));
+    let protected_routes = Router::new().route(
+        "/fg/update/password",
+        post(ControllerUser::fg_update_user_password).layer(from_fn(auth_middleware)),
+    );
 
     Router::new()
         .merge(public_routes)

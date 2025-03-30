@@ -1,4 +1,5 @@
 use bcrypt::{hash, verify, DEFAULT_COST};
+use chrono::{DateTime, Duration, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -22,6 +23,13 @@ pub struct UserCode {
     pub id: i64,
     pub email: String,
     pub code: Option<String>,
+    pub code_expiration: Option<chrono::DateTime<Utc>>,
+}
+
+#[derive(serde::Deserialize)]
+pub struct UpdatePasswordPayload {
+    // pub token: String,
+    pub password: String,
 }
 
 #[derive(Deserialize)]
@@ -198,7 +206,7 @@ impl ModelUser {
     pub async fn fg_verify_email_already_exists(
         email: &str,
     ) -> Result<UserCode, (StatusCode, Json<serde_json::Value>)> {
-        let query = "SELECT id, email FROM users WHERE email = ?";
+        let query = "SELECT id, email, code, code_expiration FROM users WHERE email = ?";
         let params = vec![email];
 
         match HelperMySql::execute_query_with_params(query, params).await {
@@ -208,6 +216,7 @@ impl ModelUser {
                         id: row.try_get("id").unwrap_or(0),
                         email: row.try_get("email").unwrap_or_default(),
                         code: row.try_get("code").ok(),
+                        code_expiration: row.try_get("code_expiration").ok(),
                     };
                     Ok(user)
                 } else {
@@ -226,10 +235,19 @@ impl ModelUser {
 
     pub async fn update_user_code(
         user_id: i64,
-        code: &str,
+        hashed_code: &str,
+        expiration: &DateTime<Utc>,
     ) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
-        let query = "UPDATE users SET code = ? WHERE id = ?";
-        let params = vec![code.to_string(), user_id.to_string()];
+        let sao_paulo_offset = Duration::hours(-3);
+        let expiration_sao_paulo = *expiration + sao_paulo_offset;
+        let formatted_expiration = expiration_sao_paulo.format("%Y-%m-%d %H:%M:%S").to_string();
+
+        let query = "UPDATE users SET code = ?, code_expiration = ? WHERE id = ?";
+        let params = vec![
+            hashed_code.to_string(),
+            formatted_expiration,
+            user_id.to_string(),
+        ];
 
         match HelperMySql::execute_query_with_params(query, params).await {
             Ok(_) => Ok(()),
@@ -240,12 +258,11 @@ impl ModelUser {
         }
     }
 
-    pub async fn fg_check_code(
+    pub async fn get_user_by_email(
         email: &str,
-        code: &str,
     ) -> Result<UserCode, (StatusCode, Json<serde_json::Value>)> {
-        let query = "SELECT id, email, code FROM users WHERE email = ? AND code = ?";
-        let params = vec![email, code];
+        let query = "SELECT id, email, code, code_expiration FROM users WHERE email = ?";
+        let params = vec![email.to_string()];
 
         match HelperMySql::execute_query_with_params(query, params).await {
             Ok(rows) => {
@@ -253,7 +270,8 @@ impl ModelUser {
                     let user = UserCode {
                         id: row.try_get("id").unwrap_or(0),
                         email: row.try_get("email").unwrap_or_default(),
-                        code: row.try_get("code").ok(), // O campo code pode ser NULL, então usamos Option
+                        code: row.try_get("code").ok(),
+                        code_expiration: row.try_get("code_expiration").ok(),
                     };
                     Ok(user)
                 } else {
@@ -289,6 +307,19 @@ impl ModelUser {
             )
                 .into_response(),
             Err(_e) => HelpersResponse::error("Erro ao atualizar senha!").into_response(),
+        }
+    }
+
+    pub async fn clear_code(user_id: i64) -> Result<(), (StatusCode, Json<serde_json::Value>)> {
+        let query = "UPDATE users SET code = NULL, code_expiration = NULL WHERE id = ?";
+        let params = vec![user_id.to_string()];
+
+        match HelperMySql::execute_query_with_params(query, params).await {
+            Ok(_) => Ok(()),
+            Err(_) => Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "status": false, "message": "Erro ao limpar código" })),
+            )),
         }
     }
 }

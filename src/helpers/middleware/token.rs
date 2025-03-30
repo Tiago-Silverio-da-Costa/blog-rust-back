@@ -56,6 +56,29 @@ impl HelperMiddlewareToken {
             Err(_) => (HelpersResponse::error("Erro ao gerar token")).into_response(),
         }
     }
+
+    pub async fn create_token_fg(
+        &self,
+        email: String,
+    ) -> Result<String, (StatusCode, Json<serde_json::Value>)> {
+        let now = Utc::now();
+        let exp = (now + Duration::minutes(5)).timestamp() as usize;
+        let iat = now.timestamp() as usize;
+
+        let claims = Claims {
+            sub: email.clone(),
+            exp,
+            iat,
+        };
+
+        match encode(&Header::default(), &claims, &self.encoding_key) {
+            Ok(token) => Ok(token),
+            Err(_) => Err((
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "status": false, "message": "Erro ao gerar token" })),
+            )),
+        }
+    }
     pub async fn verify_token(&self, mut req: Request<Body>, next: Next) -> Response {
         let auth_header = req
             .headers()
