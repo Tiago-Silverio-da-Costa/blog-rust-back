@@ -39,11 +39,12 @@ impl HelperMiddlewareToken {
         }
     }
 
-    pub async fn create_token(&self, user: &User) -> Response {
+
+    pub async fn create_token(&self, user: &LoginRequest, user_id: i32) -> Response {
+
         let now = Utc::now();
         let exp = (now + Duration::hours(24)).timestamp() as usize;
         let iat = now.timestamp() as usize;
-
         let claims = Claims {
             sub: user.email.clone(),
             exp,
@@ -51,21 +52,39 @@ impl HelperMiddlewareToken {
         };
 
         match encode(&Header::default(), &claims, &self.encoding_key) {
-            Ok(_token) => {
-                let response_body = json!({
-                    "message": "Login bem-sucedido",
-                    "token": _token,
-                    "userId": user.id
+
+            Ok(token) => {
+                let results = json!({
+                    "token": token,
+                    "user_id": user_id,
                 });
-                HelpersResponse::success("Query executada", json!(response_body)).into_response()
+                HelpersResponse::success("Login bem-sucedido", results)
             }
-            Err(_) => (
+            Err(_) => (HelpersResponse::error("Erro ao gerar token")).into_response(),
+        }
+    }
+
+    pub async fn create_token_fg(
+        &self,
+        email: String,
+    ) -> Result<String, (StatusCode, Json<serde_json::Value>)> {
+        let now = Utc::now();
+        let exp = (now + Duration::minutes(5)).timestamp() as usize;
+        let iat = now.timestamp() as usize;
+
+        let claims = Claims {
+            sub: email.clone(),
+            exp,
+            iat,
+        };
+
+        match encode(&Header::default(), &claims, &self.encoding_key) {
+            Ok(token) => Ok(token),
+            Err(_) => Err((
+
                 StatusCode::INTERNAL_SERVER_ERROR,
-                Json(json!({
-                    "message": "Erro ao gerar token"
-                })),
-            )
-                .into_response(),
+                Json(json!({ "status": false, "message": "Erro ao gerar token" })),
+            )),
         }
     }
     pub async fn verify_token(&self, mut req: Request<Body>, next: Next) -> Response {
