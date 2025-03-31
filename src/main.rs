@@ -21,6 +21,7 @@ pub mod mvc {
         pub mod post {
             pub mod model_post;
         }
+
         pub mod comment {
             pub mod model_comment;
         }
@@ -52,6 +53,7 @@ pub mod mvc {
         pub mod comment {
             pub mod route_comment;
         }
+
     }
 
     pub mod services {
@@ -60,6 +62,7 @@ pub mod mvc {
                 pub mod services_user_email;
             }
         }
+
     }
 }
 

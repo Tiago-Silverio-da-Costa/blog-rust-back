@@ -31,8 +31,9 @@ pub fn create_routes() -> Router {
         .allow_headers(Any);
 
     let public_routes = Router::new()
-        .route("/{id}", get(ControllerComment::get_all_comments_by_post)) // GET para buscar comentários de um post
+        .route("/{id}", get(ControllerComment::get_all_comments_by_post)) 
         .route("/", post(ControllerComment::post_new_comment));
+
 
     let protected_routes = Router::new()
         .route(

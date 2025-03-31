@@ -43,6 +43,7 @@ impl ControllerUser {
         Json(data): Json<LoginRequest>,
     ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
         Ok(ModelUser::auth_user(&data).await)
+
     }
 
     pub async fn register_user(

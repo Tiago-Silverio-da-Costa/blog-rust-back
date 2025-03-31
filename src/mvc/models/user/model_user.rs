@@ -1,3 +1,8 @@
+
+use bcrypt::{hash, verify, DEFAULT_COST};
+use serde::{Deserialize, Serialize};
+use serde_json::json;
+
 use axum::{
     extract::Json,
     http::StatusCode,
@@ -150,6 +155,7 @@ impl ModelUser {
         let hashed_password = match hash(&data.user.password, DEFAULT_COST) {
             Ok(hp) => hp,
             Err(_) => return (HelpersResponse::error("Erro ao processar a senha")).into_response(),
+
         };
 
         let query = "INSERT INTO users (name, email, password) VALUES (?, ?, ?)";
@@ -158,6 +164,7 @@ impl ModelUser {
             data.user.email.clone(),
             hashed_password.to_string(),
         ];
+
 
         match HelperMySql::execute_query_with_params(query, params).await {
             Ok(_) => (
@@ -169,6 +176,7 @@ impl ModelUser {
             )
                 .into_response(),
             Err(_e) => HelpersResponse::error("Erro ao inserir usuário").into_response(),
+
         }
     }
 
@@ -275,6 +283,7 @@ impl ModelUser {
         let query = "SELECT id, email, code, code_expiration FROM users WHERE email = ?";
         let params = vec![email.to_string()];
 
+
         match HelperMySql::execute_query_with_params(query, params).await {
             Ok(rows) => {
                 if let Some(row) = rows.get(0) {
@@ -331,6 +340,7 @@ impl ModelUser {
                 StatusCode::INTERNAL_SERVER_ERROR,
                 Json(json!({ "status": false, "message": "Erro ao limpar código" })),
             )),
+
         }
     }
 }

@@ -10,6 +10,7 @@ use axum::{
 
 use sqlx::Row;
 
+
 use crate::helpers::db::helpers_mysql::HelperMySql;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -65,6 +66,7 @@ impl ModelComment {
         VALUES (?, ?, ?, ?, ?, ?)
         "#;
         
+
         let params: Vec<String> = vec![
             new_comment.comment.post_id.to_string(),
             new_comment.comment.user_id.to_string(),
@@ -95,6 +97,7 @@ impl ModelComment {
             users u ON c.user_id = u.id
         WHERE 
             c.post_id = ? AND c.is_deleted = 0;
+
         "#;
 
         let params: Vec<i32> = vec![post_id];
@@ -111,6 +114,7 @@ impl ModelComment {
                     let created_at_sp = created_at_utc.with_timezone(&sao_paulo_offset);
                     let updated_at_sp = updated_at_utc.with_timezone(&sao_paulo_offset);
                         
+
                         json!({
                              "id": row.try_get::<i32, _>("id").unwrap_or_default(),
                             "post_id": row.try_get::<i32, _>("post_id").unwrap_or_default(),
@@ -120,6 +124,7 @@ impl ModelComment {
                             "is_deleted": row.try_get::<bool, _>("is_deleted").unwrap_or(false),
                             "created_at": created_at_sp.to_rfc3339(),
                             "updated_at": updated_at_sp.to_rfc3339(),
+
                         })
                     })
                     .collect();
