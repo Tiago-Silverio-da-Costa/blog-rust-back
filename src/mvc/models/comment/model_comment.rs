@@ -1,4 +1,4 @@
-use chrono::{DateTime, Duration, FixedOffset, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -22,6 +22,7 @@ pub struct CommentRequestSchema {
     post_id: i32,
     user_id: i32,
     content: String,
+    parent_id: i32,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -60,8 +61,8 @@ impl ModelComment {
         let now_utc = Utc::now();
 
         let query = r#"
-        INSERT INTO comments (post_id, user_id, content, is_deleted, created_at, updated_at) 
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO comments (post_id, user_id, content, is_deleted, created_at, updated_at, parent_id) 
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         "#;
 
         let params: Vec<String> = vec![
@@ -71,6 +72,7 @@ impl ModelComment {
             0.to_string(),
             now_utc.to_rfc3339(),
             now_utc.to_rfc3339(),
+            new_comment.comment.parent_id.to_string(),
         ];
 
         match HelperMySql::execute_query_with_params(query, params).await {
@@ -108,6 +110,7 @@ impl ModelComment {
                              "id": row.try_get::<i32, _>("id").unwrap_or_default(),
                             "post_id": row.try_get::<i32, _>("post_id").unwrap_or_default(),
                             "user_id": row.try_get::<i32, _>("user_id").unwrap_or_default(),
+                            "parent_id": row.try_get::<Option<i32>, _>("parent_id").unwrap_or(None),
                             "user_name": row.try_get::<Option<String>, _>("user_name").unwrap_or(None),
                             "content": row.try_get::<String, _>("content").unwrap_or_default(),
                             "is_deleted": row.try_get::<bool, _>("is_deleted").unwrap_or(false),
