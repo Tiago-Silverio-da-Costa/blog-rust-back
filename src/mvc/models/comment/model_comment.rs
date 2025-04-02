@@ -10,7 +10,6 @@ use axum::{
 
 use sqlx::Row;
 
-
 use crate::helpers::db::helpers_mysql::HelperMySql;
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -58,22 +57,20 @@ pub struct ModelComment;
 
 impl ModelComment {
     pub async fn insert_comment(new_comment: CommentRequest) -> Result<(), ApiError> {
-        let sao_paulo_offset = Duration::hours(-3);
-        let now_sao_paulo = Utc::now() + sao_paulo_offset;
+        let now_utc = Utc::now();
 
         let query = r#"
         INSERT INTO comments (post_id, user_id, content, is_deleted, created_at, updated_at) 
         VALUES (?, ?, ?, ?, ?, ?)
         "#;
-        
 
         let params: Vec<String> = vec![
             new_comment.comment.post_id.to_string(),
             new_comment.comment.user_id.to_string(),
             new_comment.comment.content.clone(),
             0.to_string(),
-            now_sao_paulo.to_rfc3339(),
-            now_sao_paulo.to_rfc3339(),
+            now_utc.to_rfc3339(),
+            now_utc.to_rfc3339(),
         ];
 
         match HelperMySql::execute_query_with_params(query, params).await {
@@ -103,17 +100,9 @@ impl ModelComment {
         let params: Vec<i32> = vec![post_id];
         match HelperMySql::execute_query_with_params(query, params).await {
             Ok(rows) => {
-               let sao_paulo_offset = FixedOffset::west_opt(3 * 3600).expect("Offset inválido");
-
                 let comments: Vec<serde_json::Value> = rows
                     .iter()
                     .map(|row| {
-
-                    let created_at_utc: DateTime<Utc> = row.try_get::<DateTime<Utc>, _>("created_at").unwrap_or_else(|_| Utc::now());
-                    let updated_at_utc: DateTime<Utc> = row.try_get::<DateTime<Utc>, _>("updated_at").unwrap_or_else(|_| Utc::now());
-                    let created_at_sp = created_at_utc.with_timezone(&sao_paulo_offset);
-                    let updated_at_sp = updated_at_utc.with_timezone(&sao_paulo_offset);
-                        
 
                         json!({
                              "id": row.try_get::<i32, _>("id").unwrap_or_default(),
@@ -122,9 +111,8 @@ impl ModelComment {
                             "user_name": row.try_get::<Option<String>, _>("user_name").unwrap_or(None),
                             "content": row.try_get::<String, _>("content").unwrap_or_default(),
                             "is_deleted": row.try_get::<bool, _>("is_deleted").unwrap_or(false),
-                            "created_at": created_at_sp.to_rfc3339(),
-                            "updated_at": updated_at_sp.to_rfc3339(),
-
+                            "created_at": row.try_get::<DateTime<Utc>, _>("created_at").unwrap_or_else(|_| Utc::now()),
+                            "updated_at": row.try_get::<DateTime<Utc>, _>("updated_at").unwrap_or_else(|_| Utc::now())
                         })
                     })
                     .collect();
