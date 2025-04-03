@@ -22,7 +22,7 @@ pub struct CommentRequestSchema {
     post_id: i32,
     user_id: i32,
     content: String,
-    parent_id: i32,
+    parent_id: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -65,21 +65,30 @@ impl ModelComment {
         VALUES (?, ?, ?, ?, ?, ?, ?)
         "#;
 
-        let params: Vec<String> = vec![
-            new_comment.comment.post_id.to_string(),
-            new_comment.comment.user_id.to_string(),
-            new_comment.comment.content.clone(),
-            0.to_string(),
-            now_utc.to_rfc3339(),
-            now_utc.to_rfc3339(),
-            new_comment.comment.parent_id.to_string(),
-        ];
+        match HelperMySql::get_instance() {
+            Some(instance) => {
+                let result = sqlx::query(query)
+                    .bind(new_comment.comment.post_id)
+                    .bind(new_comment.comment.user_id)
+                    .bind(&new_comment.comment.content)
+                    .bind(0) // is_deleted
+                    .bind(now_utc)
+                    .bind(now_utc)
+                    .bind(new_comment.comment.parent_id) // Option<i32> diretamente
+                    .execute(&instance.pool)
+                    .await;
 
-        match HelperMySql::execute_query_with_params(query, params).await {
-            Ok(_) => Ok(()),
-            Err(err) => Err(ApiError {
+                match result {
+                    Ok(_) => Ok(()),
+                    Err(err) => Err(ApiError {
+                        status_code: StatusCode::INTERNAL_SERVER_ERROR,
+                        message: format!("Erro ao inserir comentário: {}", err),
+                    }),
+                }
+            }
+            None => Err(ApiError {
                 status_code: StatusCode::INTERNAL_SERVER_ERROR,
-                message: format!("Erro ao inserir comentário: {}", err),
+                message: "Database not initialized".to_string(),
             }),
         }
     }
