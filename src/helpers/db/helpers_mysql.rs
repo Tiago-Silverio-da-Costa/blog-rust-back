@@ -12,7 +12,7 @@ static DB_POOL: OnceCell<Arc<HelperMySql>> = OnceCell::new();
 
 #[derive(Debug)]
 pub struct HelperMySql {
-    pool: Pool<MySql>,
+    pub pool: Pool<MySql>,
 }
 
 impl HelperMySql {

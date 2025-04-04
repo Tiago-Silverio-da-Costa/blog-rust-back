@@ -1,4 +1,4 @@
-use chrono::{DateTime, Duration, FixedOffset, Utc};
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -22,6 +22,7 @@ pub struct CommentRequestSchema {
     post_id: i32,
     user_id: i32,
     content: String,
+    parent_id: Option<i32>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -60,24 +61,34 @@ impl ModelComment {
         let now_utc = Utc::now();
 
         let query = r#"
-        INSERT INTO comments (post_id, user_id, content, is_deleted, created_at, updated_at) 
-        VALUES (?, ?, ?, ?, ?, ?)
+        INSERT INTO comments (post_id, user_id, content, is_deleted, created_at, updated_at, parent_id) 
+        VALUES (?, ?, ?, ?, ?, ?, ?)
         "#;
 
-        let params: Vec<String> = vec![
-            new_comment.comment.post_id.to_string(),
-            new_comment.comment.user_id.to_string(),
-            new_comment.comment.content.clone(),
-            0.to_string(),
-            now_utc.to_rfc3339(),
-            now_utc.to_rfc3339(),
-        ];
+        match HelperMySql::get_instance() {
+            Some(instance) => {
+                let result = sqlx::query(query)
+                    .bind(new_comment.comment.post_id)
+                    .bind(new_comment.comment.user_id)
+                    .bind(&new_comment.comment.content)
+                    .bind(0) // is_deleted
+                    .bind(now_utc)
+                    .bind(now_utc)
+                    .bind(new_comment.comment.parent_id) // Option<i32> diretamente
+                    .execute(&instance.pool)
+                    .await;
 
-        match HelperMySql::execute_query_with_params(query, params).await {
-            Ok(_) => Ok(()),
-            Err(err) => Err(ApiError {
+                match result {
+                    Ok(_) => Ok(()),
+                    Err(err) => Err(ApiError {
+                        status_code: StatusCode::INTERNAL_SERVER_ERROR,
+                        message: format!("Erro ao inserir comentário: {}", err),
+                    }),
+                }
+            }
+            None => Err(ApiError {
                 status_code: StatusCode::INTERNAL_SERVER_ERROR,
-                message: format!("Erro ao inserir comentário: {}", err),
+                message: "Database not initialized".to_string(),
             }),
         }
     }
@@ -108,6 +119,7 @@ impl ModelComment {
                              "id": row.try_get::<i32, _>("id").unwrap_or_default(),
                             "post_id": row.try_get::<i32, _>("post_id").unwrap_or_default(),
                             "user_id": row.try_get::<i32, _>("user_id").unwrap_or_default(),
+                            "parent_id": row.try_get::<Option<i32>, _>("parent_id").unwrap_or(None),
                             "user_name": row.try_get::<Option<String>, _>("user_name").unwrap_or(None),
                             "content": row.try_get::<String, _>("content").unwrap_or_default(),
                             "is_deleted": row.try_get::<bool, _>("is_deleted").unwrap_or(false),
