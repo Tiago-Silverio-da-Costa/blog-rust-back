@@ -10,7 +10,8 @@ use serde_json::json;
 use sqlx::Row;
 
 use crate::helpers::{
-    db::helpers_mysql::HelperMySql, middleware::token::HelperMiddlewareToken,
+    db::helpers_mysql::HelperMySql,
+    middleware::token::{Claims, HelperMiddlewareToken},
     response::helpers_response::HelpersResponse,
 };
 
@@ -103,23 +104,41 @@ impl IntoResponse for ApiError {
 }
 
 impl ModelUser {
+    pub async fn session_user(claims: Claims) -> impl IntoResponse {
+        let query = "SELECT id, email, role FROM users WHERE email = ?";
+        let params = vec![claims.sub.clone()];
+
+        match HelperMySql::execute_query_with_params(query, params).await {
+            Ok(rows) => {
+                if let Some(row) = rows.get(0) {
+                    let user = json!({
+                        "id": row.try_get::<i32, _>("id").unwrap_or_default(),
+                        "email": row.try_get::<String, _>("email").unwrap_or_default(),
+                        "role": row.try_get::<String, _>("role").unwrap_or_default()
+                    });
+                    HelpersResponse::success("Usuário encontrado", user)
+                } else {
+                    (
+                        StatusCode::NOT_FOUND,
+                        Json(json!({ "message": "Usuário não encontrado" })),
+                    )
+                        .into_response()
+                }
+            }
+            Err(_) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({ "message": "Erro ao buscar usuário" })),
+            )
+                .into_response(),
+        }
+    }
+
     pub async fn auth_user(data: &LoginRequest) -> impl IntoResponse {
         let query = "SELECT * from users WHERE email = ?";
         let params = vec![data.user.email.clone()];
 
         match HelperMySql::execute_query_with_params(query, params).await {
             Ok(rows) => {
-                // if rows.is_empty() {
-                //     return (HelpersResponse::error("Usuário não encontrado")).into_response();
-                // }
-                // for (i, row) in rows.iter().enumerate() {
-                //     println!("Row {}:", i);
-                //     for column in row.columns() {
-                //         let column_name = column.name();
-                //         let value: Option<&str> = row.try_get(column_name).ok();
-                //         println!("  {}: {:?}", column_name, value);
-                //     }
-                // }
                 if let Some(row) = rows.get(0) {
                     let hashed_password: String = row.try_get("password").unwrap_or_default();
 

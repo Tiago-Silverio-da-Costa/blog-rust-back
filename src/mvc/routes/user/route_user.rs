@@ -4,7 +4,7 @@ use axum::{
     middleware::from_fn,
     middleware::Next,
     response::Response,
-    routing::post,
+    routing::{get, post},
     Router,
 };
 use tower_http::cors::{Any, CorsLayer};
@@ -38,10 +38,15 @@ pub fn create_routes() -> Router {
         )
         .route("/fg/check/code", post(ControllerUser::fg_check_code));
 
-    let protected_routes = Router::new().route(
-        "/fg/update/password",
-        post(ControllerUser::fg_update_user_password).layer(from_fn(auth_middleware)),
-    );
+    let protected_routes = Router::new()
+        .route(
+            "/fg/update/password",
+            post(ControllerUser::fg_update_user_password).layer(from_fn(auth_middleware)),
+        )
+        .route(
+            "/session",
+            get(ControllerUser::get_me).layer(from_fn(auth_middleware)),
+        );
 
     Router::new()
         .merge(public_routes)
