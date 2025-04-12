@@ -58,6 +58,10 @@ pub fn create_routes() -> Router {
         .route(
             "/edit",
             put(ControllerPost::edit_post).layer(from_fn(auth_middleware)),
+        )
+        .route(
+            "/remove",
+            put(ControllerPost::delete_post).layer(from_fn(auth_middleware)),
         );
 
     Router::new()

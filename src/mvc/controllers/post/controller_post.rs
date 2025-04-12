@@ -1,5 +1,5 @@
 use crate::mvc::models::post::model_post::{
-    CreateAuthor, CreateCategory, EditPost, ModelPost, PostRequest,
+    CreateAuthor, CreateCategory, DeletePost, EditPost, ModelPost, PostRequest,
 };
 use axum::{extract::Json, extract::Path, http::StatusCode, response::IntoResponse};
 use serde_json::{json, Value};
@@ -126,5 +126,11 @@ impl ControllerPost {
         Json(edit_post): Json<EditPost>,
     ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
         Ok(ModelPost::edit_post(edit_post).await)
+    }
+
+    pub async fn delete_post(
+        Json(delete_post): Json<DeletePost>,
+    ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
+        Ok(ModelPost::delete_post(delete_post).await)
     }
 }

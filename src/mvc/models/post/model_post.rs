@@ -18,6 +18,17 @@ pub struct ModelPost;
 pub struct PostRequestModel {
     pub post: PostRequestItem,
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeletePost {
+    pub post: DeletePostItem,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct DeletePostItem {
+    pub id: i32,
+}
+
 #[derive(Debug, Serialize, Deserialize)]
 pub struct PostRequest {
     pub post: PostRequestItem,
@@ -133,20 +144,20 @@ impl ModelPost {
                     .into_iter()
                     .map(|row| {
                         json!({
-                              "id": row.try_get::<i32, _>("id").unwrap_or_default(),
-                               "author_id": row.try_get::<i32, _>("author_id").unwrap_or_default(),
-                               "author_name": row.try_get::<String, _>("author_name").unwrap_or_default(),
-                               "category_id": row.try_get::<i32, _>("category_id").unwrap_or_default(),
-                               "category_name": row.try_get::<String, _>("category_name").unwrap_or_default(),
-                               "title": row.try_get::<String, _>("title").unwrap_or_default(),
-                               "description": row.try_get::<String, _>("description").unwrap_or_default(),
-                               "publication_date": row.try_get::<NaiveDateTime, _>("publication_date").unwrap_or_default(),
-                               "post_image_url": row.try_get::<Option<String>, _>("post_image_url").unwrap_or(None),
-                               "content": row.try_get::<String, _>("content").unwrap_or_default(),
-                               "created_at": row.try_get::<DateTime<Utc>, _>("created_at").unwrap_or_default(),
-                               "updated_at": row.try_get::<DateTime<Utc>, _>("updated_at").unwrap_or_default(),
-                               "slug": row.try_get::<String, _>("slug").unwrap_or_default(),
-
+                            "id": row.try_get::<i32, _>("id").unwrap_or_default(),
+                            "author_id": row.try_get::<i32, _>("author_id").unwrap_or_default(),
+                            "author_name": row.try_get::<String, _>("author_name").unwrap_or_default(),
+                            "category_id": row.try_get::<i32, _>("category_id").unwrap_or_default(),
+                            "category_name": row.try_get::<String, _>("category_name").unwrap_or_default(),
+                            "title": row.try_get::<String, _>("title").unwrap_or_default(),
+                            "description": row.try_get::<String, _>("description").unwrap_or_default(),
+                            "publication_date": row.try_get::<NaiveDateTime, _>("publication_date").unwrap_or_default(),
+                            "post_image_url": row.try_get::<Option<String>, _>("post_image_url").unwrap_or(None),
+                            "content": row.try_get::<String, _>("content").unwrap_or_default(),
+                            "created_at": row.try_get::<DateTime<Utc>, _>("created_at").unwrap_or_default(),
+                            "updated_at": row.try_get::<DateTime<Utc>, _>("updated_at").unwrap_or_default(),
+                            "slug": row.try_get::<String, _>("slug").unwrap_or_default(),
+                             "is_active": row.try_get::<i32, _>("is_active").unwrap_or_default()
                         })
                     })
                     .collect();
@@ -312,6 +323,22 @@ impl ModelPost {
             Ok(_) => HelpersResponse::success("Post editado!", "").into_response(),
             Err(e_) => {
                 HelpersResponse::error_with_detail("Erro ao editar post", e_).into_response()
+            }
+        }
+    }
+
+    pub async fn delete_post(delete_post: DeletePost) -> impl IntoResponse {
+        let query = r#"
+            UPDATE posts
+            SET is_active = false
+            WHERE id = ?
+        "#;
+
+        let params = vec![delete_post.post.id.to_string()];
+        match HelperMySql::execute_query_with_params(query, params).await {
+            Ok(_) => HelpersResponse::success("Post removido!", "").into_response(),
+            Err(e_) => {
+                HelpersResponse::error_with_detail("Erro ao remover post", e_).into_response()
             }
         }
     }
