@@ -34,10 +34,15 @@ pub fn create_routes() -> Router {
         .route("/{id}", get(ControllerPost::get_post_by_id))
         .route("/slug/{slug}", get(ControllerPost::get_post_by_slug));
 
-    let protected_routes = Router::new().route(
-        "/create",
-        post(ControllerPost::create_post).layer(from_fn(auth_middleware)),
-    );
+    let protected_routes = Router::new()
+        .route(
+            "/create",
+            post(ControllerPost::create_post).layer(from_fn(auth_middleware)),
+        )
+        .route(
+            "/author",
+            get(ControllerPost::get_all_authors).layer(from_fn(auth_middleware)),
+        );
 
     Router::new()
         .merge(public_routes)

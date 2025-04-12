@@ -1,10 +1,6 @@
-use crate::{
-    helpers::db::helpers_mysql::HelperMySql,
-    mvc::models::post::model_post::{ModelPost, PostRequest},
-};
+use crate::mvc::models::post::model_post::{ModelPost, PostRequest};
 use axum::{extract::Json, extract::Path, http::StatusCode, response::IntoResponse};
 use serde_json::{json, Value};
-use sqlx::Row;
 
 pub struct ControllerPost;
 
@@ -44,6 +40,22 @@ impl ControllerPost {
         }
     }
 
+    pub async fn get_all_authors() -> impl IntoResponse {
+        match ModelPost::get_all_authors().await {
+            Ok(authors) => (
+                StatusCode::OK,
+                Json(json!({ "status": true, "data": authors })),
+            ),
+            Err(err) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "status": false,
+                    "message": format!("Erro ao buscar autores: {}", err)
+                })),
+            ),
+        }
+    }
+
     pub async fn get_post_by_slug(Path(slug): Path<String>) -> impl IntoResponse {
         match ModelPost::select_post_by_slug(slug).await {
             Ok(post) => (
@@ -56,13 +68,6 @@ impl ControllerPost {
                 .into_response(),
             Err(err) => err.into_response(),
         }
-    }
-
-    pub async fn get_all_slugs() -> Result<Vec<String>, sqlx::Error> {
-        let query = "SELECT slug FROM posts";
-        let rows = HelperMySql::execute_select(query).await?;
-        let slugs: Vec<String> = rows.into_iter().map(|row| row.get("slug")).collect();
-        Ok(slugs)
     }
 
     pub async fn get_post_by_id(Path(post_id): Path<i32>) -> impl IntoResponse {

@@ -8,7 +8,7 @@ use axum::{
     response::{IntoResponse, Response},
 };
 
-use sqlx::Row;
+use sqlx::{prelude::FromRow, Row};
 
 use crate::helpers::{db::helpers_mysql::HelperMySql, response::helpers_response::HelpersResponse};
 
@@ -46,6 +46,12 @@ pub struct Post {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub slug: String,
+}
+
+#[derive(Debug, FromRow, Serialize)]
+pub struct Author {
+    pub id: i32,
+    pub name: String,
 }
 
 pub struct ApiError {
@@ -163,6 +169,14 @@ impl ModelPost {
         let rows = HelperMySql::execute_select(query).await?;
         let slugs: Vec<String> = rows.into_iter().map(|row| row.get("slug")).collect();
         Ok(slugs)
+    }
+
+    pub async fn get_all_authors() -> Result<Vec<Author>, sqlx::Error> {
+        let query = "select * from authors";
+        let rows = HelperMySql::execute_select(query).await?;
+        let authors: Result<Vec<Author>, sqlx::Error> =
+            rows.into_iter().map(|row| Author::from_row(&row)).collect();
+        authors
     }
 
     pub async fn create_post(slug: &str, post_request: PostRequest) -> impl IntoResponse {
