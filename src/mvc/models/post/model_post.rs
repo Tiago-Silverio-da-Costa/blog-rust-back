@@ -58,6 +58,16 @@ pub struct CreateAuthorItem {
     pub name: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateCategory {
+    pub category: CreateCategoryItem,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateCategoryItem {
+    pub name: String,
+}
+
 #[derive(Debug, FromRow, Serialize)]
 pub struct Author {
     pub id: i32,
@@ -216,6 +226,20 @@ impl ModelPost {
         match HelperMySql::execute_query_with_params(query, params).await {
             Ok(_) => HelpersResponse::success("Autor criado!", create_author).into_response(),
             Err(_) => HelpersResponse::error("Erro ao criar autor").into_response(),
+        }
+    }
+
+    pub async fn create_category(create_category: CreateCategory) -> impl IntoResponse {
+        let query = r#"
+        INSERT INTO categories (name)
+        VALUES (?)
+        "#;
+
+        let params = vec![create_category.category.name.to_string()];
+
+        match HelperMySql::execute_query_with_params(query, params).await {
+            Ok(_) => HelpersResponse::success("Categoria criada!", create_category).into_response(),
+            Err(_) => HelpersResponse::error("Erro ao criar categoria").into_response(),
         }
     }
 

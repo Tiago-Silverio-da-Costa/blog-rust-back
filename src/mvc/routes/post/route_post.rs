@@ -50,6 +50,10 @@ pub fn create_routes() -> Router {
         .route(
             "/create/author",
             post(ControllerPost::create_author).layer(from_fn(auth_middleware)),
+        )
+        .route(
+            "/create/category",
+            post(ControllerPost::create_category).layer(from_fn(auth_middleware)),
         );
 
     Router::new()
