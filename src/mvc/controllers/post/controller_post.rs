@@ -1,4 +1,4 @@
-use crate::mvc::models::post::model_post::{ModelPost, PostRequest};
+use crate::mvc::models::post::model_post::{CreateAuthor, ModelPost, PostRequest};
 use axum::{extract::Json, extract::Path, http::StatusCode, response::IntoResponse};
 use serde_json::{json, Value};
 
@@ -98,6 +98,12 @@ impl ControllerPost {
                 .into_response(),
             Err(err) => err.into_response(),
         }
+    }
+
+    pub async fn create_author(
+        Json(create_author): Json<CreateAuthor>,
+    ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
+        Ok(ModelPost::create_author(create_author).await)
     }
 
     pub async fn create_post(

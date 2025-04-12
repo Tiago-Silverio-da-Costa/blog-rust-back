@@ -48,6 +48,16 @@ pub struct Post {
     pub slug: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateAuthor {
+    pub author: CreateAuthorItem,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateAuthorItem {
+    pub name: String,
+}
+
 #[derive(Debug, FromRow, Serialize)]
 pub struct Author {
     pub id: i32,
@@ -193,6 +203,20 @@ impl ModelPost {
         let authors: Result<Vec<Author>, sqlx::Error> =
             rows.into_iter().map(|row| Author::from_row(&row)).collect();
         authors
+    }
+
+    pub async fn create_author(create_author: CreateAuthor) -> impl IntoResponse {
+        let query = r#"
+            INSERT INTO authors (name) 
+            VALUES (?)
+        "#;
+
+        let params = vec![create_author.author.name.to_string()];
+
+        match HelperMySql::execute_query_with_params(query, params).await {
+            Ok(_) => HelpersResponse::success("Autor criado!", create_author).into_response(),
+            Err(_) => HelpersResponse::error("Erro ao criar autor").into_response(),
+        }
     }
 
     pub async fn create_post(slug: &str, post_request: PostRequest) -> impl IntoResponse {
