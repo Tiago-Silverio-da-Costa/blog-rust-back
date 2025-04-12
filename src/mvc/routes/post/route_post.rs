@@ -4,7 +4,7 @@ use axum::{
     middleware::from_fn,
     middleware::Next,
     response::Response,
-    routing::{get, post},
+    routing::{get, post, put},
     Router,
 };
 use tower_http::cors::{Any, CorsLayer};
@@ -54,6 +54,10 @@ pub fn create_routes() -> Router {
         .route(
             "/create/category",
             post(ControllerPost::create_category).layer(from_fn(auth_middleware)),
+        )
+        .route(
+            "/edit",
+            put(ControllerPost::edit_post).layer(from_fn(auth_middleware)),
         );
 
     Router::new()

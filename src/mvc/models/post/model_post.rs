@@ -68,6 +68,23 @@ pub struct CreateCategoryItem {
     pub name: String,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EditPost {
+    pub post: EditPostItem,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct EditPostItem {
+    pub id: i32,
+    pub author_id: i32,
+    pub category_id: i32,
+    pub title: String,
+    pub description: String,
+    pub post_image_url: Option<String>,
+    pub content: String,
+    pub slug: String,
+}
+
 #[derive(Debug, FromRow, Serialize)]
 pub struct Author {
     pub id: i32,
@@ -243,19 +260,19 @@ impl ModelPost {
         }
     }
 
-    pub async fn create_post(slug: &str, post_request: PostRequest) -> impl IntoResponse {
+    pub async fn create_post(slug: &str, create_post: PostRequest) -> impl IntoResponse {
         let query = r#"
         INSERT INTO posts (author_id, category_id, title, description, post_image_url, content, slug)
         VALUES (?, ?, ?, ?, ?, ?, ?)
     "#;
 
         let params = vec![
-            post_request.post.author_id.to_string(),
-            post_request.post.category_id.to_string(),
-            post_request.post.title,
-            post_request.post.description,
-            post_request.post.post_image_url.unwrap_or_default(),
-            post_request.post.content,
+            create_post.post.author_id.to_string(),
+            create_post.post.category_id.to_string(),
+            create_post.post.title,
+            create_post.post.description,
+            create_post.post.post_image_url.unwrap_or_default(),
+            create_post.post.content,
             slug.to_string(),
         ];
 
@@ -263,6 +280,38 @@ impl ModelPost {
             Ok(_) => HelpersResponse::success("Post criado!", slug).into_response(),
             Err(_e) => {
                 HelpersResponse::error_with_detail("Erro ao criar post!", _e).into_response()
+            }
+        }
+    }
+
+    pub async fn edit_post(edit_post: EditPost) -> impl IntoResponse {
+        let query = r#"
+            UPDATE posts
+            SET author_id = ?, 
+                category_id = ?, 
+                title = ?, 
+                description = ?, 
+                post_image_url = ?, 
+                content = ?, 
+                slug = ?
+            WHERE id = ?
+        "#;
+
+        let params = vec![
+            edit_post.post.author_id.to_string(),
+            edit_post.post.category_id.to_string(),
+            edit_post.post.title,
+            edit_post.post.description,
+            edit_post.post.post_image_url.unwrap_or_default(),
+            edit_post.post.content,
+            edit_post.post.slug,
+            edit_post.post.id.to_string(),
+        ];
+
+        match HelperMySql::execute_query_with_params(query, params).await {
+            Ok(_) => HelpersResponse::success("Post editado!", "").into_response(),
+            Err(e_) => {
+                HelpersResponse::error_with_detail("Erro ao editar post", e_).into_response()
             }
         }
     }
