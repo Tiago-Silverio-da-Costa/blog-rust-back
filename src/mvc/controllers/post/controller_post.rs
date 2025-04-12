@@ -40,6 +40,22 @@ impl ControllerPost {
         }
     }
 
+    pub async fn get_all_categories() -> impl IntoResponse {
+        match ModelPost::get_all_categories().await {
+            Ok(categories) => (
+                StatusCode::OK,
+                Json(json!({ "status": true, "data": categories})),
+            ),
+            Err(err) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "status": false,
+                    "message": format!("Erro ao buscar categorias {}", err)
+                })),
+            ),
+        }
+    }
+
     pub async fn get_all_authors() -> impl IntoResponse {
         match ModelPost::get_all_authors().await {
             Ok(authors) => (

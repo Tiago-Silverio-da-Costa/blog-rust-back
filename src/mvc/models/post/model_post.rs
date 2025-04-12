@@ -54,6 +54,12 @@ pub struct Author {
     pub name: String,
 }
 
+#[derive(Debug, FromRow, Serialize)]
+pub struct CategoryReq {
+    pub id: i32,
+    pub name: String,
+}
+
 pub struct ApiError {
     status_code: StatusCode,
     message: String,
@@ -171,8 +177,18 @@ impl ModelPost {
         Ok(slugs)
     }
 
+    pub async fn get_all_categories() -> Result<Vec<CategoryReq>, sqlx::Error> {
+        let query = "SELECT * from categories";
+        let rows = HelperMySql::execute_select(query).await?;
+        let categories: Result<Vec<CategoryReq>, sqlx::Error> = rows
+            .into_iter()
+            .map(|row| CategoryReq::from_row(&row))
+            .collect();
+        categories
+    }
+
     pub async fn get_all_authors() -> Result<Vec<Author>, sqlx::Error> {
-        let query = "select * from authors";
+        let query = "SELECT * from authors";
         let rows = HelperMySql::execute_select(query).await?;
         let authors: Result<Vec<Author>, sqlx::Error> =
             rows.into_iter().map(|row| Author::from_row(&row)).collect();
