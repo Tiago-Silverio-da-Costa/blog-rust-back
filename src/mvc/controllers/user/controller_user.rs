@@ -39,11 +39,16 @@ fn generate_code() -> String {
 }
 
 impl ControllerUser {
+    pub async fn get_me(
+        Extension(claims): Extension<Claims>,
+    ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
+        Ok(ModelUser::session_user(claims).await)
+    }
+
     pub async fn login(
         Json(data): Json<LoginRequest>,
     ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
         Ok(ModelUser::auth_user(&data).await)
-
     }
 
     pub async fn register_user(

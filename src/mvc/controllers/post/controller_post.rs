@@ -1,10 +1,8 @@
-use crate::{
-    helpers::db::helpers_mysql::HelperMySql,
-    mvc::models::post::model_post::{ModelPost, PostRequest},
+use crate::mvc::models::post::model_post::{
+    CreateAuthor, CreateCategory, DeletePost, EditPost, ModelPost, PostRequest,
 };
 use axum::{extract::Json, extract::Path, http::StatusCode, response::IntoResponse};
-use serde_json::json;
-use sqlx::Row;
+use serde_json::{json, Value};
 
 pub struct ControllerPost;
 
@@ -44,6 +42,38 @@ impl ControllerPost {
         }
     }
 
+    pub async fn get_all_categories() -> impl IntoResponse {
+        match ModelPost::get_all_categories().await {
+            Ok(categories) => (
+                StatusCode::OK,
+                Json(json!({ "status": true, "data": categories})),
+            ),
+            Err(err) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "status": false,
+                    "message": format!("Erro ao buscar categorias {}", err)
+                })),
+            ),
+        }
+    }
+
+    pub async fn get_all_authors() -> impl IntoResponse {
+        match ModelPost::get_all_authors().await {
+            Ok(authors) => (
+                StatusCode::OK,
+                Json(json!({ "status": true, "data": authors })),
+            ),
+            Err(err) => (
+                StatusCode::INTERNAL_SERVER_ERROR,
+                Json(json!({
+                    "status": false,
+                    "message": format!("Erro ao buscar autores: {}", err)
+                })),
+            ),
+        }
+    }
+
     pub async fn get_post_by_slug(Path(slug): Path<String>) -> impl IntoResponse {
         match ModelPost::select_post_by_slug(slug).await {
             Ok(post) => (
@@ -56,13 +86,6 @@ impl ControllerPost {
                 .into_response(),
             Err(err) => err.into_response(),
         }
-    }
-
-    pub async fn get_all_slugs() -> Result<Vec<String>, sqlx::Error> {
-        let query = "SELECT slug FROM posts";
-        let rows = HelperMySql::execute_select(query).await?;
-        let slugs: Vec<String> = rows.into_iter().map(|row| row.get("slug")).collect();
-        Ok(slugs)
     }
 
     pub async fn get_post_by_id(Path(post_id): Path<i32>) -> impl IntoResponse {
@@ -79,12 +102,35 @@ impl ControllerPost {
         }
     }
 
-    pub async fn create_post(
-        Json(post_request): Json<PostRequest>,
-    ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
-        let existing_slugs = ModelPost::get_all_slugs().await.unwrap_or(vec![]);
-        let slug = generate_slug(&post_request.post.title, existing_slugs);
+    pub async fn create_author(
+        Json(create_author): Json<CreateAuthor>,
+    ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
+        Ok(ModelPost::create_author(create_author).await)
+    }
 
-        Ok(ModelPost::create_post(&slug, post_request).await)
+    pub async fn create_category(
+        Json(create_category): Json<CreateCategory>,
+    ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
+        Ok(ModelPost::create_category(create_category).await)
+    }
+
+    pub async fn create_post(
+        Json(create_post): Json<PostRequest>,
+    ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
+        let existing_slugs = ModelPost::get_all_slugs().await.unwrap_or(vec![]);
+        let slug = generate_slug(&create_post.post.title, existing_slugs);
+        Ok(ModelPost::create_post(&slug, create_post).await)
+    }
+
+    pub async fn edit_post(
+        Json(edit_post): Json<EditPost>,
+    ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
+        Ok(ModelPost::edit_post(edit_post).await)
+    }
+
+    pub async fn delete_post(
+        Json(delete_post): Json<DeletePost>,
+    ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
+        Ok(ModelPost::delete_post(delete_post).await)
     }
 }

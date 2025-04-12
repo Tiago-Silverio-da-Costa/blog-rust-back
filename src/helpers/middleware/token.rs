@@ -6,7 +6,9 @@ use axum::{
     Json,
 };
 
-use crate::helpers::response::helpers_response::HelpersResponse;
+use sqlx::Row;
+
+use crate::helpers::{db::helpers_mysql::HelperMySql, response::helpers_response::HelpersResponse};
 use crate::mvc::models::user::model_user::LoginRequest;
 use chrono::{Duration, Utc};
 use dotenv::dotenv;
@@ -16,6 +18,14 @@ use serde_json::json;
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Claims {
+    pub sub: String,
+    pub role: String,
+    pub user_id: i32,
+    pub exp: usize,
+    pub iat: usize,
+}
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ClaimsFG {
     pub sub: String,
     pub exp: usize,
     pub iat: usize,
@@ -40,11 +50,24 @@ impl HelperMiddlewareToken {
     }
 
     pub async fn create_token(&self, user: &LoginRequest, user_id: i32) -> Response {
+        let query = "SELECT role FROM users WHERE email = ?";
+        let params = vec![user.user.email.clone()];
+        let role = match HelperMySql::execute_query_with_params(query, params).await {
+            Ok(rows) => rows
+                .get(0)
+                .and_then(|row| row.try_get("role").ok())
+                .unwrap_or("user".to_string()),
+            Err(_) => "user".to_string(),
+        };
+        println!("token {:?}", user_id);
+
         let now = Utc::now();
         let exp = (now + Duration::hours(24)).timestamp() as usize;
         let iat = now.timestamp() as usize;
         let claims = Claims {
             sub: user.user.email.clone(),
+            role,
+            user_id,
             exp,
             iat,
         };
@@ -69,7 +92,7 @@ impl HelperMiddlewareToken {
         let exp = (now + Duration::minutes(5)).timestamp() as usize;
         let iat = now.timestamp() as usize;
 
-        let claims = Claims {
+        let claims = ClaimsFG {
             sub: email.clone(),
             exp,
             iat,
@@ -95,6 +118,15 @@ impl HelperMiddlewareToken {
                 let validation = Validation::default();
                 match decode::<Claims>(token, &self.decoding_key, &validation) {
                     Ok(token_data) => {
+                        if req.uri().path().starts_with("/post")
+                            && token_data.claims.role != "admin"
+                        {
+                            return (
+                                StatusCode::FORBIDDEN,
+                                Json(json!({ "message": "Acesso negado: apenas administradores"})),
+                            )
+                                .into_response();
+                        }
                         req.extensions_mut().insert(token_data.claims);
                         next.run(req).await
                     }

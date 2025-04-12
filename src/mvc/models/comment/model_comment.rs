@@ -20,7 +20,6 @@ pub struct CommentRequest {
 #[derive(Debug, Serialize, Deserialize)]
 pub struct CommentRequestSchema {
     post_id: i32,
-    user_id: i32,
     content: String,
     parent_id: Option<i32>,
 }
@@ -36,6 +35,7 @@ pub struct Comment {
     updated_at: DateTime<Utc>,
 }
 
+#[derive(Debug)]
 pub struct ApiError {
     status_code: StatusCode,
     message: String,
@@ -57,7 +57,7 @@ impl IntoResponse for ApiError {
 pub struct ModelComment;
 
 impl ModelComment {
-    pub async fn insert_comment(new_comment: CommentRequest) -> Result<(), ApiError> {
+    pub async fn insert_comment(new_comment: CommentRequest, user_id: i32) -> Result<(), ApiError> {
         let now_utc = Utc::now();
 
         let query = r#"
@@ -69,7 +69,7 @@ impl ModelComment {
             Some(instance) => {
                 let result = sqlx::query(query)
                     .bind(new_comment.comment.post_id)
-                    .bind(new_comment.comment.user_id)
+                    .bind(user_id)
                     .bind(&new_comment.comment.content)
                     .bind(0) // is_deleted
                     .bind(now_utc)
