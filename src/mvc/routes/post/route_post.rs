@@ -1,3 +1,7 @@
+use crate::{
+    helpers::middleware::token::HelperMiddlewareToken,
+    mvc::controllers::post::controller_post::ControllerPost,
+};
 use axum::{
     body::Body,
     http::{Method, Request},
@@ -7,12 +11,9 @@ use axum::{
     routing::{get, post, put},
     Router,
 };
+use dotenv::dotenv;
+use std::env;
 use tower_http::cors::{Any, CorsLayer};
-
-use crate::{
-    helpers::middleware::token::HelperMiddlewareToken,
-    mvc::controllers::post::controller_post::ControllerPost,
-};
 
 async fn auth_middleware(req: Request<Body>, next: Next) -> Response {
     let auth: HelperMiddlewareToken = HelperMiddlewareToken::new();
@@ -20,12 +21,10 @@ async fn auth_middleware(req: Request<Body>, next: Next) -> Response {
 }
 
 pub fn create_routes() -> Router {
+    dotenv().ok();
+    let base_url: String = env::var("BASE_URL").expect("BASE_URL não configurada");
     let cors = CorsLayer::new()
-        .allow_origin(
-            "http://localhost:3000"
-                .parse::<axum::http::HeaderValue>()
-                .unwrap(),
-        )
+        .allow_origin(base_url.parse::<axum::http::HeaderValue>().unwrap())
         .allow_methods([Method::GET, Method::POST, Method::PUT, Method::DELETE])
         .allow_headers(Any);
 

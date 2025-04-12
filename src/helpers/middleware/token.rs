@@ -20,6 +20,7 @@ use serde_json::json;
 pub struct Claims {
     pub sub: String,
     pub role: String,
+    pub user_id: i32,
     pub exp: usize,
     pub iat: usize,
 }
@@ -58,6 +59,7 @@ impl HelperMiddlewareToken {
                 .unwrap_or("user".to_string()),
             Err(_) => "user".to_string(),
         };
+        println!("token {:?}", user_id);
 
         let now = Utc::now();
         let exp = (now + Duration::hours(24)).timestamp() as usize;
@@ -65,6 +67,7 @@ impl HelperMiddlewareToken {
         let claims = Claims {
             sub: user.user.email.clone(),
             role,
+            user_id,
             exp,
             iat,
         };

@@ -1,5 +1,12 @@
-use crate::mvc::models::comment::model_comment::{CommentRequest, ModelComment};
-use axum::{extract::Json, extract::Path, http::StatusCode, response::IntoResponse};
+use crate::{
+    helpers::middleware::token::Claims,
+    mvc::models::comment::model_comment::{CommentRequest, ModelComment},
+};
+use axum::{
+    extract::{Extension, Json, Path},
+    http::StatusCode,
+    response::IntoResponse,
+};
 use serde_json::json;
 
 pub struct ControllerComment;
@@ -19,8 +26,11 @@ impl ControllerComment {
         }
     }
 
-    pub async fn post_new_comment(Json(new_comment): Json<CommentRequest>) -> impl IntoResponse {
-        match ModelComment::insert_comment(new_comment).await {
+    pub async fn post_new_comment(
+        Extension(claims): Extension<Claims>,
+        Json(new_comment): Json<CommentRequest>,
+    ) -> impl IntoResponse {
+        match ModelComment::insert_comment(new_comment, claims.user_id).await {
             Ok(_) => (
                 StatusCode::CREATED,
                 Json(json!({
@@ -29,7 +39,7 @@ impl ControllerComment {
                 })),
             )
                 .into_response(),
-            Err(err) => err.into_response(),
+            Err(err) => println!("erwsdf {:?}", err).into_response(),
         }
     }
 }
