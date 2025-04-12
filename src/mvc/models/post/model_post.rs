@@ -15,10 +15,24 @@ use crate::helpers::{db::helpers_mysql::HelperMySql, response::helpers_response:
 pub struct ModelPost;
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct PostRequestModel {
+    pub post: PostRequestItem,
+}
+#[derive(Debug, Serialize, Deserialize)]
 pub struct PostRequest {
-    pub post: Post,
+    pub post: PostRequestItem,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+pub struct PostRequestItem {
+    pub author_id: i32,
+    pub category_id: i32,
+    pub title: String,
+    pub description: String,
+    pub post_image_url: Option<String>,
+    pub content: String,
+    pub slug: String,
+}
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Post {
     pub id: i32,
@@ -137,12 +151,10 @@ impl ModelPost {
 
                 Ok(post)
             }
-            Err(err) => {
-                Err(ApiError {
-                    status_code: StatusCode::INTERNAL_SERVER_ERROR,
-                    message: format!("Erro ao buscar o post: {}", err),
-                })
-            }
+            Err(err) => Err(ApiError {
+                status_code: StatusCode::INTERNAL_SERVER_ERROR,
+                message: format!("Erro ao buscar o post: {}", err),
+            }),
         }
     }
 
@@ -155,8 +167,8 @@ impl ModelPost {
 
     pub async fn create_post(slug: &str, post_request: PostRequest) -> impl IntoResponse {
         let query = r#"
-        INSERT INTO posts (author_id, category_id, title, description, publication_date, post_image_url, content, created_at, updated_at, slug)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO posts (author_id, category_id, title, description, post_image_url, content, slug)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
     "#;
 
         let params = vec![
@@ -164,17 +176,16 @@ impl ModelPost {
             post_request.post.category_id.to_string(),
             post_request.post.title,
             post_request.post.description,
-            post_request.post.publication_date.to_string(),
             post_request.post.post_image_url.unwrap_or_default(),
             post_request.post.content,
-            Utc::now().to_string(),
-            Utc::now().to_string(),
             slug.to_string(),
         ];
 
         match HelperMySql::execute_query_with_params(query, params).await {
             Ok(_) => HelpersResponse::success("Post criado!", slug).into_response(),
-            Err(_e) => HelpersResponse::error("Erro ao criar post!").into_response(),
+            Err(_e) => {
+                HelpersResponse::error_with_detail("Erro ao criar post!", _e).into_response()
+            }
         }
     }
 

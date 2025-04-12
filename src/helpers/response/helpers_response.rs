@@ -31,4 +31,18 @@ impl HelpersResponse {
         )
             .into_response()
     }
+
+    // Função para resposta de erro com detalhes adicionais
+    pub fn error_with_detail<E: std::fmt::Display>(message: &str, err: E) -> Response {
+        (
+            StatusCode::INTERNAL_SERVER_ERROR,
+            Json(json!({
+                "code": "ERROR",
+                "type": "error",
+                "message": message,
+                "error": err.to_string()
+            })),
+        )
+            .into_response()
+    }
 }

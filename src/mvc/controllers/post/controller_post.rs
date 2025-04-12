@@ -3,7 +3,7 @@ use crate::{
     mvc::models::post::model_post::{ModelPost, PostRequest},
 };
 use axum::{extract::Json, extract::Path, http::StatusCode, response::IntoResponse};
-use serde_json::json;
+use serde_json::{json, Value};
 use sqlx::Row;
 
 pub struct ControllerPost;
@@ -81,10 +81,9 @@ impl ControllerPost {
 
     pub async fn create_post(
         Json(post_request): Json<PostRequest>,
-    ) -> Result<impl IntoResponse, (StatusCode, Json<serde_json::Value>)> {
+    ) -> Result<impl IntoResponse, (StatusCode, Json<Value>)> {
         let existing_slugs = ModelPost::get_all_slugs().await.unwrap_or(vec![]);
         let slug = generate_slug(&post_request.post.title, existing_slugs);
-
         Ok(ModelPost::create_post(&slug, post_request).await)
     }
 }
