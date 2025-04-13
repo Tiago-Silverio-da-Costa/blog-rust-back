@@ -12,7 +12,7 @@ RUN cargo build --release
 FROM debian:buster-slim
 
 # Copia o binário compilado da etapa anterior
-COPY --from=builder /app/target/release/seu_binario /usr/local/bin/seu_binario
+COPY --from=builder /app/target/release/seu_binario /usr/local/bin/blog-back
 
 # Define o comando padrão para rodar sua aplicação
-CMD ["seu_binario"]
+CMD ["blog-back"]
