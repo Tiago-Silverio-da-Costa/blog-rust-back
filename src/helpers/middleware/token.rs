@@ -59,7 +59,6 @@ impl HelperMiddlewareToken {
                 .unwrap_or("user".to_string()),
             Err(_) => "user".to_string(),
         };
-        println!("token {:?}", user_id);
 
         let now = Utc::now();
         let exp = (now + Duration::hours(24)).timestamp() as usize;
