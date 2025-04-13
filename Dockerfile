@@ -9,7 +9,7 @@ COPY . .
 RUN cargo build --release
 
 # Etapa 2: Criação da imagem final com o binário compilado
-FROM debian:buster-slim
+FROM debian:bookworm-slim
 
 # Copia o binário compilado da etapa anterior
 COPY --from=builder /app/target/release/blog-back /usr/local/bin/blog-back
