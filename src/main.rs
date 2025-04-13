@@ -53,6 +53,7 @@ pub mod mvc {
         pub mod comment {
             pub mod route_comment;
         }
+
     }
 
     pub mod services {
@@ -61,21 +62,18 @@ pub mod mvc {
                 pub mod services_user_email;
             }
         }
+
     }
 }
 
 use crate::helpers::db::helpers_mysql::HelperMySql;
-use dotenv::dotenv;
-use std::env;
 
 #[tokio::main]
 async fn main() {
-    dotenv().ok();
-    let base_url_back: String = env::var("BASE_URL_BACK").expect("BASE_URL não configurada");
-
     let app: axum::Router = server::create_app().await;
     let listener: tokio::net::TcpListener =
-        tokio::net::TcpListener::bind(base_url_back).await.unwrap();
+        tokio::net::TcpListener::bind("0.0.0.0:8080").await.unwrap();
+    println!("Servidor rodando em http://127.0.0.1:8080");
 
     match HelperMySql::init().await {
         Ok(_helper) => {
