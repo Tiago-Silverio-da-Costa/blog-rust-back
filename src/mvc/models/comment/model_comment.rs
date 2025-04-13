@@ -116,13 +116,13 @@ impl ModelComment {
                     .map(|row| {
 
                         json!({
-                             "id": row.try_get::<i32, _>("id").unwrap_or_default(),
+                            "id": row.try_get::<i32, _>("id").unwrap_or_default(),
                             "post_id": row.try_get::<i32, _>("post_id").unwrap_or_default(),
                             "user_id": row.try_get::<i32, _>("user_id").unwrap_or_default(),
-                            "parent_id": row.try_get::<Option<i32>, _>("parent_id").unwrap_or(None),
                             "user_name": row.try_get::<Option<String>, _>("user_name").unwrap_or(None),
                             "content": row.try_get::<String, _>("content").unwrap_or_default(),
                             "is_deleted": row.try_get::<bool, _>("is_deleted").unwrap_or(false),
+                            "parent_id": row.try_get::<Option<i32>, _>("parent_id").unwrap_or(None),
                             "created_at": row.try_get::<DateTime<Utc>, _>("created_at").unwrap_or_else(|_| Utc::now()),
                             "updated_at": row.try_get::<DateTime<Utc>, _>("updated_at").unwrap_or_else(|_| Utc::now())
                         })

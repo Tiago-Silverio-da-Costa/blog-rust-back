@@ -151,13 +151,13 @@ impl ModelPost {
                             "category_name": row.try_get::<String, _>("category_name").unwrap_or_default(),
                             "title": row.try_get::<String, _>("title").unwrap_or_default(),
                             "description": row.try_get::<String, _>("description").unwrap_or_default(),
-                            "publication_date": row.try_get::<NaiveDateTime, _>("publication_date").unwrap_or_default(),
                             "post_image_url": row.try_get::<Option<String>, _>("post_image_url").unwrap_or(None),
                             "content": row.try_get::<String, _>("content").unwrap_or_default(),
+                            "slug": row.try_get::<String, _>("slug").unwrap_or_default(),
+                            "is_active": row.try_get::<i32, _>("is_active").unwrap_or_default(),
+                            "publication_date": row.try_get::<NaiveDateTime, _>("publication_date").unwrap_or_default(),
                             "created_at": row.try_get::<DateTime<Utc>, _>("created_at").unwrap_or_default(),
                             "updated_at": row.try_get::<DateTime<Utc>, _>("updated_at").unwrap_or_default(),
-                            "slug": row.try_get::<String, _>("slug").unwrap_or_default(),
-                             "is_active": row.try_get::<i32, _>("is_active").unwrap_or_default()
                         })
                     })
                     .collect();
@@ -202,9 +202,11 @@ impl ModelPost {
                     "category_name": row.try_get::<String, _>("category_name").unwrap_or_default(),
                     "title": row.try_get::<String, _>("title").unwrap_or_default(),
                     "description": row.try_get::<String, _>("description").unwrap_or_default(),
-                    "publication_date": row.try_get::<NaiveDateTime, _>("publication_date").unwrap_or_default().format("%Y-%m-%d").to_string(),
                     "post_image_url": row.try_get::<Option<String>, _>("post_image_url").unwrap_or(None),
                     "content": row.try_get::<String, _>("content").unwrap_or_default(),
+                    "slug": row.try_get::<String, _>("slug").unwrap_or_default(),
+                    "is_active": row.try_get::<i32, _>("is_active").unwrap_or_default(),
+                    "publication_date": row.try_get::<NaiveDateTime, _>("publication_date").unwrap_or_default(),
                     "created_at": row.try_get::<DateTime<Utc>, _>("created_at").unwrap_or_default(),
                     "updated_at": row.try_get::<DateTime<Utc>, _>("updated_at").unwrap_or_default(),
                 });
@@ -376,12 +378,13 @@ impl ModelPost {
                     "category_name": row.try_get::<String, _>("category_name").unwrap_or_default(),
                     "title": row.try_get::<String, _>("title").unwrap_or_default(),
                     "description": row.try_get::<String, _>("description").unwrap_or_default(),
-                    "publication_date": row.try_get::<NaiveDateTime, _>("publication_date").unwrap_or_default(),
                     "post_image_url": row.try_get::<Option<String>, _>("post_image_url").unwrap_or(None),
                     "content": row.try_get::<String, _>("content").unwrap_or_default(),
+                    "slug": row.try_get::<String, _>("slug").unwrap_or_default(),
+                    "is_active": row.try_get::<i32, _>("is_active").unwrap_or_default(),
+                    "publication_date": row.try_get::<NaiveDateTime, _>("publication_date").unwrap_or_default(),
                     "created_at": row.try_get::<DateTime<Utc>, _>("created_at").unwrap_or_default(),
                     "updated_at": row.try_get::<DateTime<Utc>, _>("updated_at").unwrap_or_default(),
-                    "slug": row.try_get::<String, _>("slug").unwrap_or_default(),
                 });
 
                 Ok(post)
